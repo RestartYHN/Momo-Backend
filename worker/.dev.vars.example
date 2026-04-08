@@ -1,5 +1,5 @@
 # allow origin for CORS, separated by comma
-ALLOW_ORIGIN="https://blog.example.com,http://localhost:4321"  
+ALLOW_ORIGIN="https://restartyhn.github.io,http://localhost:4321"
 
 # Site Settings
 SITE_NAME="Momo Blog"                            # site name

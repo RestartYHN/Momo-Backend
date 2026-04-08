@@ -1,6 +1,7 @@
 import { Context } from 'hono'
 import { Bindings } from '../../bindings'
 import { getCravatar } from '../../utils/getAvatar'
+import { getCommentFingerprint } from '../../utils/fingerprint'
 
 export const getComments = async (c: Context<{ Bindings: Bindings }>) => {
     const post_slug = c.req.query('post_slug')
@@ -14,17 +15,26 @@ export const getComments = async (c: Context<{ Bindings: Bindings }>) => {
   try {
     // 1. 查询审核通过的评论
     const query = `
-      SELECT id, author, email, url, content_text as contentText, 
-             content_html as contentHtml, pub_date as pubDate, parent_id as parentId
-      FROM Comment 
+      SELECT id, author, email, url, content_text as contentText,
+             content_html as contentHtml, pub_date as pubDate, parent_id as parentId,
+             like_count as likeCount
+      FROM Comment
       WHERE post_slug = ? AND status = "approved"
       ORDER BY pub_date DESC
     `
     const { results } = await c.env.MOMO_DB.prepare(query).bind(post_slug).all()
 
+    const fingerprint = await getCommentFingerprint(c)
+    const likedRows = await c.env.MOMO_DB.prepare(
+      'SELECT comment_id FROM CommentLike WHERE fingerprint = ?'
+    ).bind(fingerprint).all<{ comment_id: number }>()
+    const likedCommentIds = new Set((likedRows.results || []).map((item) => item.comment_id))
+
     // 2. 批量处理头像并格式化
     const allComments = await Promise.all(results.map(async (row: any) => ({
       ...row,
+      likeCount: Number(row.likeCount || 0),
+      likedByMe: likedCommentIds.has(row.id),
       avatar: await getCravatar(row.email),
       replies: []
     })))

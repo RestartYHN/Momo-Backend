@@ -6,6 +6,8 @@ import { adminAuth } from './utils/auth'
 
 import { getComments } from './api/public/getComments'
 import { postComment } from './api/public/postComment'
+import { likeComment } from './api/public/likeComment'
+import { unlikeComment } from './api/public/unlikeComment'
 import { adminLogin } from './api/admin/login'
 import { listComments } from './api/admin/listComments'
 import { updateStatus } from './api/admin/updateStatus'
@@ -21,6 +23,8 @@ app.use('/api/*', async (c, next) => {
 // API
 app.get('/api/comments', getComments)
 app.post('/api/comments', postComment)
+app.post('/api/comments/:id/like', likeComment)
+app.post('/api/comments/:id/unlike', unlikeComment)
 
 app.post('/admin/login', adminLogin)
 app.use('/admin/*', adminAuth)
