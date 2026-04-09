@@ -7,7 +7,7 @@ import { canPostComment, checkContent} from "../../utils/security"
 import LogService from "../../utils/log";
 
 export default async (ctx: koa.Context, next: koa.Next): Promise<void> => {
-  const data = ctx.request.body;
+  const data = ctx.request.body as Record<string, any>;
   const ip = ctx.request.headers['cf-connecting-ip'] as string || ctx.request.headers['x-real-ip'] as string || 
             (ctx.request.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 
             ctx.ip;
