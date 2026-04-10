@@ -5,6 +5,136 @@ import { mergeCookies, neteaseGet } from "./neteaseClient";
 const trackCache = new Map<string, { expiresAt: number; data: unknown }>();
 const TRACK_TTL_MS = 10 * 60 * 1000;
 
+function pickFirstSong(payload: any): any | undefined {
+  if (Array.isArray(payload?.songs) && payload.songs.length > 0) {
+    return payload.songs[0];
+  }
+  if (Array.isArray(payload?.data?.songs) && payload.data.songs.length > 0) {
+    return payload.data.songs[0];
+  }
+  if (payload?.song && typeof payload.song === "object") {
+    return payload.song;
+  }
+  return undefined;
+}
+
+function songArtist(song: any): string {
+  if (Array.isArray(song?.ar) && song.ar.length > 0) {
+    return song.ar.map((item: any) => item?.name || "Unknown").join(", ");
+  }
+  if (Array.isArray(song?.artists) && song.artists.length > 0) {
+    return song.artists.map((item: any) => item?.name || "Unknown").join(", ");
+  }
+  return "Unknown Artist";
+}
+
+function songCover(song: any): string {
+  return song?.al?.picUrl || song?.album?.picUrl || song?.picUrl || "";
+}
+
+function uniqueIds(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const id of ids) {
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    result.push(id);
+  }
+  return result;
+}
+
+function toId(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  return "";
+}
+
+function extractSongIdsFromPayload(payload: any): string[] {
+  const songsFromList = Array.isArray(payload?.songs)
+    ? payload.songs.map((s: any) => toId(s?.id)).filter(Boolean)
+    : [];
+
+  const songsFromTracks = Array.isArray(payload?.playlist?.tracks)
+    ? payload.playlist.tracks.map((s: any) => toId(s?.id)).filter(Boolean)
+    : [];
+
+  const songsFromTrackIds = Array.isArray(payload?.playlist?.trackIds)
+    ? payload.playlist.trackIds.map((s: any) => toId(s?.id)).filter(Boolean)
+    : [];
+
+  return uniqueIds([...songsFromList, ...songsFromTracks, ...songsFromTrackIds]).slice(0, 200);
+}
+
+function isUpstreamUnavailable(error: unknown): boolean {
+  const msg = String((error as Error)?.message || "");
+  return /ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|ETIMEDOUT|timeout|Upstream NetEase API unavailable/i.test(msg);
+}
+
+async function fetchPlaylistSongIds(playlistId: string, cookie?: string) {
+  const attempts: string[] = [];
+  const routes: Array<{
+    path: string;
+    profile: "pc" | "web";
+    params: Record<string, string | number>;
+    source: string;
+  }> = [
+    {
+      path: "/playlist/track/all",
+      profile: "pc",
+      params: { id: playlistId, limit: 200, offset: 0, timestamp: Date.now() },
+      source: "track-all-pc",
+    },
+    {
+      path: "/playlist/detail",
+      profile: "pc",
+      params: { id: playlistId, timestamp: Date.now() },
+      source: "playlist-detail-pc",
+    },
+    {
+      path: "/playlist/track/all",
+      profile: "web",
+      params: { id: playlistId, limit: 200, offset: 0, timestamp: Date.now() },
+      source: "track-all-web",
+    },
+    {
+      path: "/playlist/detail",
+      profile: "web",
+      params: { id: playlistId, timestamp: Date.now() },
+      source: "playlist-detail-web",
+    },
+  ];
+
+  let lastError: unknown;
+
+  for (const route of routes) {
+    try {
+      const resp = await neteaseGet(route.path, route.params, cookie, route.profile);
+      const code = Number(resp?.data?.code || resp.statusCode || 0);
+      const ids = extractSongIdsFromPayload(resp?.data || {});
+      attempts.push(`${route.source}:code=${code}:songs=${ids.length}`);
+
+      if (ids.length > 0) {
+        return {
+          songs: ids,
+          source: route.source,
+          upstreamCode: code,
+          attempts,
+        };
+      }
+    } catch (error) {
+      lastError = error;
+      attempts.push(`${route.source}:error=${String((error as Error)?.message || error)}`);
+    }
+  }
+
+  const apiBase = String(process.env.NETEASE_API_BASE || "http://127.0.0.1:3000").trim();
+  const detail = attempts.join(" | ");
+  const message = isUpstreamUnavailable(lastError)
+    ? `Upstream NetEase API unavailable at ${apiBase}. Ensure local API on port 3000 is running.`
+    : `Unable to load playlist songs for ${playlistId}. Attempts: ${detail}`;
+  throw new Error(message);
+}
+
 async function fetchTrackById(id: string) {
   const cached = trackCache.get(id);
   if (cached && cached.expiresAt > Date.now()) {
@@ -18,9 +148,25 @@ async function fetchTrackById(id: string) {
   ]);
 
   const detailData = detailResp.data as any;
+  let song = pickFirstSong(detailData);
+
+  // Some upstream setups return empty songs for pc profile; web profile often still has metadata.
+  if (!song) {
+    try {
+      const detailRespWeb = await neteaseGet(
+        "/song/detail",
+        { ids: id, timestamp: Date.now() },
+        undefined,
+        "web",
+      );
+      song = pickFirstSong(detailRespWeb.data);
+    } catch {
+      // Keep fallback title/artist below.
+    }
+  }
+
   const urlData = urlResp.data as any;
   const lrcData = lrcResp.data as any;
-  const song = Array.isArray(detailData.songs) ? detailData.songs[0] : undefined;
   const urlItem = Array.isArray(urlData.data) ? urlData.data[0] : undefined;
   const lyricText = typeof lrcData.lrc?.lyric === "string" ? lrcData.lrc.lyric : "";
   const translatedLyricText = typeof lrcData.tlyric?.lyric === "string" ? lrcData.tlyric.lyric : "";
@@ -28,8 +174,8 @@ async function fetchTrackById(id: string) {
   const data = {
     id,
     title: song?.name || `Song ${id}`,
-    artist: Array.isArray(song?.ar) ? song.ar.map((item: any) => item?.name || "Unknown").join(", ") : "Unknown Artist",
-    cover: song?.al?.picUrl || "",
+    artist: songArtist(song),
+    cover: songCover(song),
     audio: urlItem?.url || "",
     lyric: lyricText,
     tlyric: translatedLyricText,
@@ -145,19 +291,8 @@ async function buildPublicSnapshot(userId: string) {
   const firstPlaylistId = playlistsRaw[0]?.id ? String(playlistsRaw[0].id) : "";
   let recentSongs: string[] = [];
   if (firstPlaylistId) {
-    const firstPlaylistResp = await neteaseGet(
-      "/playlist/track/all",
-      { id: firstPlaylistId, limit: 100, offset: 0, timestamp: Date.now() },
-      undefined,
-      "pc",
-    );
-    const songsRaw = Array.isArray(firstPlaylistResp.data.songs)
-      ? (firstPlaylistResp.data.songs as Array<{ id?: number }>)
-      : [];
-    recentSongs = songsRaw
-      .map((s) => (s.id !== undefined ? String(s.id) : ""))
-      .filter(Boolean)
-      .slice(0, 100);
+    const snapshotSongs = await fetchPlaylistSongIds(firstPlaylistId);
+    recentSongs = snapshotSongs.songs.slice(0, 100);
   }
 
   return {
@@ -370,34 +505,21 @@ export async function getPlaylistSongs(ctx: Context) {
       return;
     }
 
-    const playlistResp = await neteaseGet(
-      "/playlist/track/all",
-      { id: playlistId, limit: 200, offset: 0, timestamp: Date.now() },
-      session.cookie,
-      "pc",
-    );
-
-    const songsRaw = Array.isArray(playlistResp.data.songs)
-      ? (playlistResp.data.songs as Array<{ id?: number }>)
-      : [];
-
-    const songs = songsRaw
-      .map((s) => (s.id !== undefined ? String(s.id) : ""))
-      .filter(Boolean)
-      .slice(0, 200);
+    const playlistData = await fetchPlaylistSongIds(playlistId, session.cookie);
 
     ctx.body = {
       code: 200,
       message: "Playlist songs retrieved",
       data: {
         playlistId,
-        songs,
+        songs: playlistData.songs,
+        source: playlistData.source,
       },
     };
   } catch (error) {
-    ctx.status = 500;
+    ctx.status = isUpstreamUnavailable(error) ? 503 : 500;
     ctx.body = {
-      code: 500,
+      code: ctx.status,
       message: "Failed to get playlist songs",
       error: (error as Error).message,
     };
@@ -445,34 +567,21 @@ export async function getPublicPlaylistSongs(ctx: Context) {
       return;
     }
 
-    const playlistResp = await neteaseGet(
-      "/playlist/track/all",
-      { id: playlistId, limit: 200, offset: 0, timestamp: Date.now() },
-      undefined,
-      "pc",
-    );
-
-    const songsRaw = Array.isArray(playlistResp.data.songs)
-      ? (playlistResp.data.songs as Array<{ id?: number }>)
-      : [];
-
-    const songs = songsRaw
-      .map((s) => (s.id !== undefined ? String(s.id) : ""))
-      .filter(Boolean)
-      .slice(0, 200);
+    const playlistData = await fetchPlaylistSongIds(playlistId);
 
     ctx.body = {
       code: 200,
       message: "Public playlist songs retrieved",
       data: {
         playlistId,
-        songs,
+        songs: playlistData.songs,
+        source: playlistData.source,
       },
     };
   } catch (error) {
-    ctx.status = 500;
+    ctx.status = isUpstreamUnavailable(error) ? 503 : 500;
     ctx.body = {
-      code: 500,
+      code: ctx.status,
       message: "Failed to get public playlist songs",
       error: (error as Error).message,
     };
@@ -530,34 +639,21 @@ export async function getCookiePlaylistSongs(ctx: Context) {
       return;
     }
 
-    const playlistResp = await neteaseGet(
-      "/playlist/track/all",
-      { id: playlistId, limit: 200, offset: 0, timestamp: Date.now() },
-      cookie,
-      "pc",
-    );
-
-    const songsRaw = Array.isArray(playlistResp.data.songs)
-      ? (playlistResp.data.songs as Array<{ id?: number }>)
-      : [];
-
-    const songs = songsRaw
-      .map((s) => (s.id !== undefined ? String(s.id) : ""))
-      .filter(Boolean)
-      .slice(0, 200);
+    const playlistData = await fetchPlaylistSongIds(playlistId, cookie);
 
     ctx.body = {
       code: 200,
       message: "Cookie playlist songs retrieved",
       data: {
         playlistId,
-        songs,
+        songs: playlistData.songs,
+        source: playlistData.source,
       },
     };
   } catch (error) {
-    ctx.status = 500;
+    ctx.status = isUpstreamUnavailable(error) ? 503 : 500;
     ctx.body = {
-      code: 500,
+      code: ctx.status,
       message: "Failed to get cookie playlist songs",
       error: (error as Error).message,
     };
