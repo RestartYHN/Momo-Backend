@@ -23,8 +23,8 @@ import { importComments, importSettings } from './api/admin/dataImport'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
-// 跨域（从数据库读取允许的来源）
-app.use('/api/*', async (c, next) => {
+// 全局跨域（从数据库读取允许的来源）
+app.use('*', async (c, next) => {
   const allowOriginStr = await getSetting(c.env, "allow_origin") || '*'
   const corsMiddleware = customCors(allowOriginStr)
   return corsMiddleware(c, next)
