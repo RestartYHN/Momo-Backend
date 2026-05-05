@@ -8,6 +8,8 @@ import { getComments } from './api/public/getComments'
 import { postComment } from './api/public/postComment'
 import { likeComment } from './api/public/likeComment'
 import { unlikeComment } from './api/public/unlikeComment'
+import { uploadImage } from './api/public/uploadImage'
+import { serveImage } from './api/public/serveImage'
 import { adminLogin } from './api/admin/login'
 import { getSettings, updateSettings, testEmail } from './api/admin/settings'
 import { changePassword } from './api/admin/password'
@@ -33,6 +35,8 @@ app.get('/api/comments', getComments)
 app.post('/api/comments', postComment)
 app.post('/api/comments/:id/like', likeComment)
 app.post('/api/comments/:id/unlike', unlikeComment)
+app.post('/api/upload', uploadImage)
+app.get('/img/:id', serveImage)
 
 app.post('/admin/login', adminLogin)
 app.use('/admin/*', adminAuth)

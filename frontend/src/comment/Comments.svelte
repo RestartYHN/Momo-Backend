@@ -31,6 +31,51 @@
   let previewHtml = '';
   let markdownWarnings: string[] = [];
 
+  let uploadingImage = false;
+  let fileInput: HTMLInputElement;
+
+  function handlePaste(e: ClipboardEvent) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) uploadAndInsert(file);
+        return;
+      }
+    }
+  }
+
+  function handleFileSelect(e: Event) {
+    const target = e.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (file) {
+      uploadAndInsert(file);
+      target.value = '';
+    }
+  }
+
+  async function uploadAndInsert(file: File) {
+    uploadingImage = true;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch(`${apiUrl}/api/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (data.url) {
+        content += (content ? '\n' : '') + `![${file.name}](${apiUrl}${data.url})`;
+      }
+    } catch (err) {
+      alert('图片上传失败');
+    } finally {
+      uploadingImage = false;
+    }
+  }
+
   function togglePreview() {
     if (!showPreview) {
       previewHtml = parseMarkdown(content);
@@ -229,10 +274,19 @@
         {:else}
           <textarea placeholder={t('comments.welcome')}
             class="rounded w-full border text-[var(--text-color)] border-[var(--button-border-color)] focus:outline-none focus:border-[var(--link-color)] text-sm p-3 min-h-[100px]"
+            on:paste={handlePaste}
             bind:value={content}></textarea>
         {/if}
 
-        <div class="text-right text-sm text-[var(--text-color)]/70 mt-1">
+        <div class="flex justify-between items-center mt-1">
+          <div>
+            <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" bind:this={fileInput} on:change={handleFileSelect} />
+            <button type="button" on:click={() => fileInput?.click()} disabled={uploadingImage}
+              class="text-xs text-[var(--text-color)]/70 hover:text-[var(--link-color)] inline-flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              {uploadingImage ? '上传中...' : '图片'}
+            </button>
+          </div>
           {#if !isContentWithinLimit(content)}
             <span class="text-red-500 ml-2">{t('comments.contentTooLong') || '内容超出限制'}</span>
           {/if}
