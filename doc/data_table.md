@@ -1,6 +1,6 @@
 # 数据库设计（SQLite）
 
-## 表：`comments`
+## 表：`Comment`
 
 
 | 字段 | 类型 | 约束 | 说明 |
@@ -18,3 +18,11 @@
 | `content_html` | TEXT | NOT NULL | 评论内容（HTML） |
 | `parent_id` | INTEGER | REFERENCES `comments`(`id`) | 回复的父评论 ID（NULL 表示顶级评论） |
 | `status` | TEXT | DEFAULT 'pending' | `pending` / `approved` / `rejected` / `deleted` |
+
+## 表：`Setting`
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| `key` | TEXT | PRIMARY KEY | 设置项名称 |
+| `value` | TEXT | NOT NULL | 值 |
+| `updated_at` | TEXT | — | 最后更新时间 |

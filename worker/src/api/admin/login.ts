@@ -1,5 +1,6 @@
 import { Context } from 'hono';
 import { Bindings } from '../../bindings';
+import { checkAdminCredentials, isDefaultAdmin } from '../../utils/settings';
 
 // 简单配置：允许尝试 5 次，锁定 30 分钟
 const MAX_ATTEMPTS = 5;
@@ -18,10 +19,8 @@ export const adminLogin = async (c: Context<{ Bindings: Bindings }>) => {
     return c.json({ message: "IP is blocked due to multiple failed login attempts" }, 403);
   }
 
-  // 2. 验证用户名密码 
-  const ADMIN_NAME = c.env.ADMIN_NAME || "Admin";
-  const ADMIN_PASSWORD = c.env.ADMIN_PASSWORD || "password";
-  const isValid = data.name === ADMIN_NAME && data.password === ADMIN_PASSWORD;
+  // 2. 验证用户名密码
+  const isValid = await checkAdminCredentials(c.env, data.name, data.password);
 
   if (!isValid) {
     // --- 登录失败逻辑 ---
@@ -48,10 +47,10 @@ export const adminLogin = async (c: Context<{ Bindings: Bindings }>) => {
 
   // --- 3. 登录成功逻辑 ---
   await c.env.MOMO_AUTH_KV.delete(attemptKey);
-  
+
   // 生成 Token (你的 tempKey)
   const tempKey = crypto.randomUUID();
-  
+
   // 将 Token 存入 KV，有效期 20 分钟 (1200秒)
   // 我们存入一个对象，包含用户名和登录 IP，增加安全性
   await c.env.MOMO_AUTH_KV.put(`token:${tempKey}`, JSON.stringify({
@@ -59,9 +58,12 @@ export const adminLogin = async (c: Context<{ Bindings: Bindings }>) => {
     ip: ip
   }), { expirationTtl: 1200 });
 
+  const needChangePassword = await isDefaultAdmin(c.env);
+
   return c.json({
       code: 200,
       message: "Login successful",
-      token: tempKey
+      token: tempKey,
+      needChangePassword
   });
 };

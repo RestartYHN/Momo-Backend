@@ -29,6 +29,18 @@ const translation: Translation = {
         words: "words",
         contentTooLong: "Comment content exceeds limit: no more than 2000 characters or 1000 words",
         replyTo: "reply to",
+        write: "Write",
+        preview: "Preview",
+        previewError: "Markdown syntax error",
+        codeFence: "Unclosed code block (```)",
+        inlineCode: "Unclosed inline code (`)",
+        bold: "Bold",
+        italic: "Italic",
+        quote: "Quote",
+        code: "Code",
+        link: "Link",
+        image: "Image",
+        list: "List",
     },
 }
 

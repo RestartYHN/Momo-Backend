@@ -12,6 +12,12 @@ datasource db {
   // url      = "file:./dev.db"
 }
 
+model Setting {
+  key     String   @id
+  value   String
+  updated_at DateTime @default(now())
+}
+
 model Comment {
   id           Int      @id @default(autoincrement())
   pub_date     DateTime @default(now())

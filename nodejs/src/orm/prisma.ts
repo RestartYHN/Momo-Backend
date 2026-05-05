@@ -4,4 +4,4 @@ const prisma = new PrismaClient();
 
 const CommentsModel = prisma.comment;
 
-export { CommentsModel };
+export { prisma, CommentsModel };

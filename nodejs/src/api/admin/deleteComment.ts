@@ -1,7 +1,7 @@
 import type koa from "koa";
 import CommentService  from "../../orm/commentService";
 import { getQueryNumber, getQueryBoolean, getQueryString } from "../../utils/url";
-import { checkAdmin, checkKey, extractToken } from "../../utils/security"
+import { checkKey, extractToken } from "../../utils/security"
 import { Comment, CreateCommentInput } from "../../type/prisma"
 
 export default async (ctx: koa.Context, next: koa.Next): Promise<void> => {
@@ -12,7 +12,7 @@ export default async (ctx: koa.Context, next: koa.Next): Promise<void> => {
 
   if(!key || !checkKey(key)) {
     ctx.status = 401;
-    ctx.body = { error: "Invalid key" };
+    ctx.body = { code: 401, message: "Invalid token" };
     return;
   }
 

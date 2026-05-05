@@ -27,5 +27,17 @@ export interface Translation {
         words: string;
         contentTooLong: string;
         replyTo: string;
+        write: string;
+        preview: string;
+        previewError: string;
+        codeFence: string;
+        inlineCode: string;
+        bold: string;
+        italic: string;
+        quote: string;
+        code: string;
+        link: string;
+        image: string;
+        list: string;
     },
 }

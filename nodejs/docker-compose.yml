@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  momo-backend:
+    build: .
+    ports:
+      - "17171:17171"
+    environment:
+      # Provide these via an env file or export in host environment
+      - NETEASE_MUSIC_COOKIE=${NETEASE_MUSIC_COOKIE}
+      - NETEASE_API_BASE=${NETEASE_API_BASE}
+      - PORT=17171
+    restart: unless-stopped

@@ -20,6 +20,13 @@ CREATE TABLE IF NOT EXISTS Comment (
     FOREIGN KEY (parent_id) REFERENCES Comment (id) ON DELETE SET NULL
 );
 
+-- Settings table for web-based configuration
+CREATE TABLE IF NOT EXISTS Settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
 -- 可选：为常用查询字段创建索引以提高性能
 CREATE INDEX IF NOT EXISTS idx_post_slug ON Comment(post_slug);
 CREATE INDEX IF NOT EXISTS idx_status ON Comment(status);

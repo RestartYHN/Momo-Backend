@@ -27,8 +27,8 @@ type CommentResponse struct {
 	ContentText string             `json:"contentText"`
 	ContentHTML string             `json:"contentHtml"`
 	PubDate     string             `json:"pubDate"`
-	ParentID    *int64             `json:"parentId,omitempty"` // 非嵌套模式显示
-	Replies     []*CommentResponse `json:"replies,omitempty"`  // 嵌套模式显示
+	ParentID    *int64             `json:"parentId,omitempty"`
+	Replies     []*CommentResponse `json:"replies,omitempty"`
 }
 
 type AdminCommentResponse struct {
@@ -50,5 +50,57 @@ type AdminCommentResponse struct {
 type Pagination struct {
 	Page      int   `json:"page"`
 	Limit     int   `json:"limit"`
-	TotalPage int64 `json:"totalPage"` // 总页数
+	TotalPage int64 `json:"totalPage"`
+}
+
+// StatsOverview 统计概览
+type StatsOverview struct {
+	TotalComments      int64                  `json:"totalComments"`
+	TotalUsers         int64                  `json:"totalUsers"`
+	TotalPosts         int64                  `json:"totalPosts"`
+	StatusDistribution StatusDistribution      `json:"statusDistribution"`
+	RecentComments     []DateCount             `json:"recentComments"`
+	TopCommenters      []TopCommenter          `json:"topCommenters"`
+}
+
+type StatusDistribution struct {
+	Approved int64 `json:"approved"`
+	Pending  int64 `json:"pending"`
+	Deleted  int64 `json:"deleted"`
+}
+
+type DateCount struct {
+	Date  string `json:"date"`
+	Count int64  `json:"count"`
+}
+
+type TopCommenter struct {
+	Author          string `json:"author"`
+	Email           string `json:"email"`
+	Count           int64  `json:"count"`
+	LastCommentDate string `json:"lastCommentDate"`
+}
+
+// UserStats 用户统计
+type UserStats struct {
+	Author           string `json:"author"`
+	Email            string `json:"email"`
+	CommentCount     int64  `json:"commentCount"`
+	ApprovedCount    int64  `json:"approvedCount"`
+	PendingCount     int64  `json:"pendingCount"`
+	DeletedCount     int64  `json:"deletedCount"`
+	FirstCommentDate string `json:"firstCommentDate"`
+	LastCommentDate  string `json:"lastCommentDate"`
+}
+
+// UserListData 用户列表响应数据
+type UserListData struct {
+	Users      []UserStats `json:"users"`
+	Pagination Pagination  `json:"pagination"`
+}
+
+// UserCommentsData 用户评论列表响应数据
+type UserCommentsData struct {
+	Comments   []AdminCommentResponse `json:"comments"`
+	Pagination Pagination              `json:"pagination"`
 }

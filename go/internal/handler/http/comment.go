@@ -15,7 +15,8 @@ import (
 )
 
 type CommentHandler struct {
-	Repo repository.CommentRepository
+	Repo    repository.CommentRepository
+	Version string
 }
 
 // PostComment 提交评论 (POST /api/comments)
@@ -47,23 +48,43 @@ func (h *CommentHandler) PostComment(c *gin.Context) {
 		deviceStr = "Desktop"
 	}
 
-	// 2. 构造数据库模型
+	// 2. XSS 检查（纯文本字段使用 CheckContent，content 走 Markdown + bluemonday 完整净化）
+	sanitizedAuthor := utils.CheckContent(req.Author)
+	sanitizedURL := utils.CheckContent(req.URL)
+	sanitizedPostTitle := utils.CheckContent(req.PostTitle)
+	sanitizedPostURL := utils.CheckContent(req.PostURL)
+	sanitizedContent := utils.CheckContent(req.Content)
+
+	// 检查评论频率控制 (60秒冷却)
+	clientIP := utils.GetClientIP(c)
+	lastComment, err := h.Repo.GetLastCommentByIP(c.Request.Context(), clientIP)
+	if err == nil && lastComment != nil && lastComment.PubDate > 0 {
+		if time.Now().UnixMilli()-lastComment.PubDate < 60000 {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"code":    429,
+				"message": "Time limit exceeded. Please wait.",
+			})
+			return
+		}
+	}
+
+	// 3. 构造数据库模型
 	comment := &model.Comment{
 		PostSlug: req.PostSlug,
-		Author:   req.Author,
+		Author:   sanitizedAuthor,
 		Email:    req.Email,
 		URL: func() *string {
-			if req.URL != "" {
-				return &req.URL
+			if sanitizedURL != "" {
+				return &sanitizedURL
 			} else {
 				return nil
 			}
 		}(),
 		PubDate:     time.Now().UnixMilli(),
-		ContentText: req.Content,
-		ContentHTML: req.Content, // 建议：此处可接入 blackfriday 等库转 HTML
+		ContentText: utils.SanitizeHtml(sanitizedContent),
+		ContentHTML: utils.ParseMarkdown(sanitizedContent),
 		ParentID:    req.ParentID,
-		IPAddress:   ptrString(utils.GetClientIP(c)),
+		IPAddress:   ptrString(clientIP),
 		Device:      ptrString(deviceStr),
 		Browser:     ptrString(browserStr),
 		UserAgent:   ptrString(uaString),
@@ -71,7 +92,7 @@ func (h *CommentHandler) PostComment(c *gin.Context) {
 		Status:      "approved",
 	}
 
-	// 3. 写入数据库
+	// 4. 写入数据库
 	if err := h.Repo.Create(c.Request.Context(), comment); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"code":    500,
@@ -82,7 +103,7 @@ func (h *CommentHandler) PostComment(c *gin.Context) {
 
 	// 发送邮件通知
 
-	if utils.GetService().IsAvailable() {
+	if utils.GetService().IsAvailable() && utils.IsEmailEnabled() {
 		go func() {
 			// 创建独立的 context，避免受 HTTP 请求生命周期影响
 			ctx := context.Background()
@@ -98,11 +119,11 @@ func (h *CommentHandler) PostComment(c *gin.Context) {
 					err = utils.GetService().SendCommentReplyNotification(
 						parentComment.Email,
 						parentComment.Author,
-						req.PostTitle,
+						sanitizedPostTitle,
 						parentComment.ContentText,
-						req.Author,
-						req.Content,
-						req.PostURL,
+						sanitizedAuthor,
+						sanitizedContent,
+						sanitizedPostURL,
 					)
 					if err != nil {
 						log.Printf("Failed to send reply notification: %v", err)
@@ -112,10 +133,10 @@ func (h *CommentHandler) PostComment(c *gin.Context) {
 				}
 			} else {
 				err := utils.GetService().SendCommentNotification(
-					req.PostTitle,
-					req.PostURL,
-					req.Author,
-					req.Content,
+					sanitizedPostTitle,
+					sanitizedPostURL,
+					sanitizedAuthor,
+					sanitizedContent,
 				)
 				if err != nil {
 					log.Printf("Failed to send admin notification: %v", err)

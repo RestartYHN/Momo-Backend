@@ -2,7 +2,8 @@ import type koa from "koa";
 import CommentService from "../../orm/commentService";
 import { Comment } from "../../type/prisma";
 import { getResponseCommentAdmin } from "../../utils/content";
-import { checkAdmin, checkKey, generateTempKey } from "../../utils/security"
+import { checkKey, generateTempKey } from "../../utils/security"
+import { checkAdminCredentials, isDefaultAdmin } from "../../utils/settings";
 import { getQueryNumber, getQueryBoolean, getQueryString } from "../../utils/url";
 import LogService from "../../utils/log";
 import { isIPBlocked, recordFailedAttempt, recordSuccessfulLogin } from "../../utils/ipSecurity";
@@ -27,7 +28,7 @@ export default async (ctx: koa.Context, next: koa.Next): Promise<void> => {
 
 //   console.log(data);
 
-  if(!checkAdmin(data.name, data.password)) {
+  if(!await checkAdminCredentials(data.name, data.password)) {
     const isBlocked = recordFailedAttempt(ip);
     ctx.status = 401;
     ctx.body = { 
@@ -50,11 +51,13 @@ export default async (ctx: koa.Context, next: koa.Next): Promise<void> => {
   LogService.info("Login successful", { ip: ip});
   
   // 生成临时密钥
-  const tempKey = generateTempKey(data.name);
-  
+  const tempKey = await generateTempKey(data.name);
+  const needChangePassword = await isDefaultAdmin();
+
   ctx.body = {
     code: 200,
     message: "Login successful",
-    token: tempKey
+    token: tempKey,
+    needChangePassword
   };
 };

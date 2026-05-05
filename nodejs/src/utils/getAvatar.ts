@@ -40,11 +40,12 @@ const getGithubAvatar = async (author: string): Promise<string | undefined> => {
   }
 };
 
-const getCravatar = async (email: string): Promise<string | undefined> => { 
-  // 将字母变成小写
-  email = email.toLowerCase();
-  const hash = crypto.createHash('md5').update(email).digest('hex');
-  return `https://cravatar.cn/avatar/${hash}?s=200&d=retro`;
+const getCravatar = async ( email: string ): Promise<string> => {
+  const cleanEmail = email.toLowerCase().trim();
+  const hash = crypto.createHash('md5').update(cleanEmail).digest('hex');
+  const avatarUrl = `https://open.motues.top/avatar?name=${hash}&mode=cravatar&variant=beam`;
+
+  return avatarUrl;
 };
 
 // 获取 QQ 头像的辅助函数

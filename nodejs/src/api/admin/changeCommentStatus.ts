@@ -1,7 +1,7 @@
 import type koa from "koa";
 import CommentService  from "../../orm/commentService";
 import { getQueryNumber, getQueryBoolean, getQueryString } from "../../utils/url";
-import { checkAdmin, checkKey, extractToken } from "../../utils/security"
+import { checkKey, extractToken } from "../../utils/security"
 
 export default async (ctx: koa.Context, next: koa.Next): Promise<void> => {
   const commentId =  getQueryNumber(ctx.query.id as string, 0);
@@ -13,8 +13,8 @@ export default async (ctx: koa.Context, next: koa.Next): Promise<void> => {
   if(!key || !checkKey(key)) {
     ctx.status = 401;
     ctx.body = { 
-      code: 400,
-      message: "Invalid token" 
+      code: 401,
+      message: "Invalid token"
     };
     return;
   }

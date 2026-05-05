@@ -3,41 +3,22 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"gopkg.in/yaml.v3"
 )
 
-// Config 结构体对应你的配置文件字段
+// Config 结构体对应配置文件字段
 type Config struct {
-	Port          int    `yaml:"PORT"`
-	AllowOrigin   string `yaml:"ALLOW_ORIGIN"`
-	SiteName      string `yaml:"SITE_NAME,omitempty"`
-	AdminName     string `yaml:"ADMIN_NAME"`
-	AdminPassword string `yaml:"ADMIN_PASSWORD"`
-	AdminEmail    string `yaml:"ADMIN_EMAIL"`
-	SMTPHost      string `yaml:"SMTP_HOST"`
-	SMTPPort      int    `yaml:"SMTP_PORT"`
-	EmailUser     string `yaml:"EMAIL_USER"`
-	EmailPassword string `yaml:"EMAIL_PASSWORD"`
-	EmailSecure   bool   `yaml:"EMAIL_SECURE"`
+	Port int `yaml:"PORT"`
 }
 
 var GlobalConfig *Config
 
-// DefaultConfig 默认配置内容
+// DefaultConfig 默认配置
 func DefaultConfig() *Config {
 	return &Config{
-		Port:          17171,
-		AllowOrigin:   "http://localhost:4321,https://example.com",
-		AdminName:     "admin",
-		AdminPassword: "password",
-		SiteName:      "Momo Blog",
-		AdminEmail:    "admin@example.com",
-		SMTPHost:      "smtp.example.com",
-		SMTPPort:      465,
-		EmailUser:     "notify@example.com",
-		EmailPassword: "xxx",
-		EmailSecure:   true,
+		Port: 17171,
 	}
 }
 
@@ -45,7 +26,6 @@ func DefaultConfig() *Config {
 func LoadConfig() (*Config, error) {
 	configPath := "./config/config.yaml"
 
-	// 确保目录存在
 	dir := filepath.Dir(configPath)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		os.MkdirAll(dir, 0755)
@@ -74,6 +54,13 @@ func LoadConfig() (*Config, error) {
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, err
+	}
+
+	// PORT 环境变量优先
+	if envPort := os.Getenv("PORT"); envPort != "" {
+		if p, err := strconv.Atoi(envPort); err == nil {
+			cfg.Port = p
+		}
 	}
 
 	GlobalConfig = &cfg

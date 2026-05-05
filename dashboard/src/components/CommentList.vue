@@ -1,5 +1,5 @@
 <template>
-  <div class="rounded-xl shadow-sm border overflow-hidden bg-white border-gray-200">
+  <div class="rounded-lg shadow-sm border overflow-hidden bg-white border-gray-200">
     <!-- 移动端：卡片布局 -->
     <div class="md:hidden divide-y divide-gray-100">
       <div v-for="item in data" :key="item.id" @click="openDetail(item)" 

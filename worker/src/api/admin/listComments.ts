@@ -3,21 +3,29 @@ import { Bindings } from '../../bindings';
 
 export const listComments = async (c: Context<{ Bindings: Bindings }>) => {
   const page = parseInt(c.req.query('page') || '1');
+  const status = c.req.query('status') || '';
   const limit = 10;
   const offset = (page - 1) * limit;
 
-  // 1. 获取总数
-  const totalCount = await c.env.MOMO_DB.prepare(
-    "SELECT COUNT(*) as count FROM Comment"
+  let countSql, listSql, bindings: any[];
+
+  if (status) {
+    countSql = "SELECT COUNT(*) as count FROM Comment WHERE status = ?";
+    listSql = "SELECT * FROM Comment WHERE status = ? ORDER BY pub_date DESC LIMIT ? OFFSET ?";
+    bindings = [status, limit, offset];
+  } else {
+    countSql = "SELECT COUNT(*) as count FROM Comment";
+    listSql = "SELECT * FROM Comment ORDER BY pub_date DESC LIMIT ? OFFSET ?";
+    bindings = [limit, offset];
+  }
+
+  const totalCount = await c.env.MOMO_DB.prepare(countSql).bind(
+    ...(status ? [status] : [])
   ).first<{ count: number }>();
 
-  // 2. 分页查询数据
-  const { results } = await c.env.MOMO_DB.prepare(
-    `SELECT * FROM Comment ORDER BY pub_date DESC LIMIT ? OFFSET ?`
-  ).bind(limit, offset).all();
+  const { results } = await c.env.MOMO_DB.prepare(listSql).bind(...bindings).all();
 
-  // 3. 映射字段名以符合你的 API 规范
-  const comments = results.map((row: any) => ({
+  const comments = (results || []).map((row: any) => ({
     id: row.id,
     pubDate: row.pub_date,
     postSlug: row.post_slug,
@@ -40,7 +48,7 @@ export const listComments = async (c: Context<{ Bindings: Bindings }>) => {
       pagination: {
         page,
         limit,
-        totalPage: Math.ceil((totalCount?. count || 0) / limit)
+        totalPage: Math.ceil((totalCount?.count || 0) / limit)
       }
     }
   });

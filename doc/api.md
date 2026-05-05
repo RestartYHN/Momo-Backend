@@ -6,13 +6,24 @@
 | --- | --- | --- |
 | POST | `/api/comments` | 提交评论 |
 | GET | `/api/comments` | 获取评论 |
+| POST | `/admin/login` | 登录 |
+| GET | `/admin/settings` | 获取系统设置 |
+| PUT | `/admin/settings` | 更新系统设置 |
+| POST | `/admin/settings/test-email` | 发送测试邮件 |
+| PUT | `/admin/password` | 修改管理员凭据 |
 | GET | `/admin/comments/list` | 获取所有评论 |
 | PUT | `/admin/comments/status` | 修改评论状态 |
-| POST | `/admin/login` | 登录 |
+| GET | `/admin/stats/overview` | 统计概览 |
+| GET | `/admin/stats/users` | 用户列表 |
+| GET | `/admin/stats/users/comments` | 用户的评论 |
+| GET | `/admin/data/export/comments` | 导出评论数据 |
+| GET | `/admin/data/export/settings` | 导出系统设置 |
+| POST | `/admin/data/import/comments` | 导入评论数据 |
+| POST | `/admin/data/import/settings` | 导入系统设置 |
 
 **接口说明**
 
-* 每次请求会返回一个状态码 `code`，请求成果为 200，失败为 400
+* 每次请求会返回一个状态码 `code`，请求成功为 200，业务错误为 400，认证错误为 401
 * 每次登录的时候会返回一个 token，用于后续的 API 请求
 * 管理员接口请求头格式：`Authorization: Bearer <token>`
 * 错误处理：如果key无效，则返回状态码 `401 Unauthorized`
@@ -160,21 +171,25 @@
 **请求体**：
 ```json
 {
-  "name": "admin",
-  "password": "password"
+  "name": "momo",
+  "password": "momo"
 }
 ```
 
+> 初始默认凭据为 `momo`/`momo`，首次登录后系统会要求修改。
+
 **响应（成功）**：
 
-如果登录成功，返回一个key
 ```json
 {
   "code": 200,
   "message": "Login successful",
-  "token": "<token>"
+  "token": "<token>",
+  "needChangePassword": false
 }
 ```
+
+> `needChangePassword` 为 `true` 时表示正在使用默认凭据，建议立即修改。
 
 **响应（失败）**：
 
@@ -191,6 +206,168 @@
   "message": "IP is blocked due to multiple failed login attempts"
 }
 ```
+
+### 获取系统设置 (GET `/admin/settings`)
+
+> 获取所有可通过网页修改的系统配置项。敏感字段（密码类）返回空字符串。
+
+**查询参数**：无
+
+**响应（成功）**：
+```json
+{
+  "code": 200,
+  "message": "Settings fetched",
+  "data": {
+    "site_name": "Momo Blog",
+    "admin_email": "admin@example.com",
+    "allow_origin": "http://localhost:4321,https://example.com",
+    "smtp_host": "smtp.example.com",
+    "smtp_port": "465",
+    "email_user": "notify@example.com",
+    "email_password": "",
+    "email_secure": "true",
+    "email_enabled": "true",
+    "reply_template": "",
+    "notification_template": ""
+  }
+}
+```
+
+> `email_password` 和 `admin_name` 等敏感字段始终返回空字符串。
+
+**响应（失败）**：
+```json
+{
+  "code": 401,
+  "message": "Invalid token"
+}
+```
+
+---
+
+### 更新系统设置 (PUT `/admin/settings`)
+
+> 更新系统配置。SMTP 等配置修改后可能需要重启服务才能完全生效。
+
+**请求体**（所有字段可选，只传需要修改的字段）：
+```json
+{
+  "site_name": "My Blog",
+  "admin_email": "newadmin@example.com",
+  "smtp_host": "smtp.gmail.com",
+  "smtp_port": "587",
+  "email_user": "user@gmail.com",
+  "email_password": "app-password",
+  "email_secure": "false",
+  "allow_origin": "https://myblog.com",
+  "email_enabled": "true",
+  "reply_template": "<div>Hi {{toName}}，<br>{{replyAuthor}} 回复了你：{{replyContent}}</div>",
+  "notification_template": "<div>{{commentAuthor}} 评论了 {{postTitle}}：{{commentContent}}</div>"
+}
+```
+
+> **邮件模板可用占位符**：
+> - 回复模板：`{{toName}}` `{{replyAuthor}}` `{{postTitle}}` `{{parentComment}}` `{{replyContent}}` `{{postUrl}}`
+> - 通知模板：`{{postTitle}}` `{{commentAuthor}}` `{{commentContent}}` `{{postUrl}}`
+
+**响应（成功）**：
+```json
+{
+  "code": 200,
+  "message": "Settings updated. Some changes may require a restart to take full effect.",
+  "smtpChanged": false
+}
+```
+
+> `smtpChanged` 为 `true` 表示 SMTP 配置有变更。
+
+**响应（失败）**：
+```json
+{
+  "code": 400,
+  "message": "Setting \"invalid_key\" is not allowed"
+}
+```
+
+---
+
+### 发送测试邮件 (POST `/admin/settings/test-email`)
+
+> 向管理员邮箱发送一封测试邮件，验证 SMTP 配置是否正确。
+
+**请求体**：无
+
+**响应（成功）**：
+```json
+{
+  "code": 200,
+  "message": "A test email has been sent"
+}
+```
+
+**响应（失败）**：
+```json
+{
+  "code": 400,
+  "message": "SMTP is not configured. "
+}
+```
+
+```json
+{
+  "code": 400,
+  "message": "Admin email is not configured. "
+}
+```
+
+```json
+{
+  "code": 400,
+  "message": "The email notification feature is currently disabled. "
+}
+```
+
+---
+
+### 修改管理员凭据 (PUT `/admin/password`)
+
+> 修改管理员用户名和密码。修改后当前 token 将失效，需重新登录。
+
+**请求体**：
+```json
+{
+  "old_name": "momo",
+  "old_password": "momo",
+  "new_name": "newadmin",
+  "new_password": "newpassword123"
+}
+```
+
+**响应（成功）**：
+```json
+{
+  "code": 200,
+  "message": "Admin credentials updated successfully. Please login again."
+}
+```
+
+**响应（失败）**：
+```json
+{
+  "code": 400,
+  "message": "Current credentials are incorrect"
+}
+```
+
+```json
+{
+  "code": 400,
+  "message": "New password must be at least 4 characters"
+}
+```
+
+---
 
 ### 修改评论状态 (PUT `/admin/comments/status`)
 
@@ -221,9 +398,11 @@
 
 **查询参数**：
 - `page`：查询页数（默认 1）
+- `status`：按状态筛选（可选，取值：`approved`、`pending`、`deleted`，为空返回全部）
 
 **响应（成功）**：
 `GET /admin/comments/list&page=1`
+或过滤：`GET /admin/comments/list?page=1&status=pending`
 
 ```json
 {
@@ -261,6 +440,316 @@
 {
   "code": 400,
   "message": "Invalid query parameters"
+}
+```
+
+### 统计概览 (GET `/admin/stats/overview`)
+
+> 获取整体数据统计，包括评论数、用户数、状态分布、趋势等
+
+**查询参数**：
+- `range`：时间范围（可选，默认 7）
+  - `7` — 最近 7 天（逐日）
+  - `14` — 最近 14 天（逐日）
+  - `30` — 最近 30 天（逐日）
+  - `0` — 最近 12 个月（按月聚合）
+
+**响应（成功）**：
+`GET /admin/stats/overview?range=7`
+
+```json
+{
+  "code": 200,
+  "message": "Stats fetched successfully",
+  "data": {
+    "totalComments": 100,
+    "totalUsers": 25,
+    "totalPosts": 10,
+    "statusDistribution": {
+      "approved": 80,
+      "pending": 15,
+      "deleted": 5
+    },
+    "recentComments": [
+      { "date": "2026-04-21", "count": 5 },
+      { "date": "2026-04-22", "count": 3 },
+      { "date": "2026-04-23", "count": 8 },
+      { "date": "2026-04-24", "count": 2 },
+      { "date": "2026-04-25", "count": 7 },
+      { "date": "2026-04-26", "count": 4 },
+      { "date": "2026-04-27", "count": 6 }
+    ],
+    "topCommenters": [
+      { "author": "张三", "email": "zhangsan@example.com", "count": 15, "lastCommentDate": "2026-04-27T10:00:00.000Z" },
+      { "author": "李四", "email": "lisi@example.com", "count": 10, "lastCommentDate": "2026-04-26T08:00:00.000Z" }
+    ]
+  }
+}
+```
+
+`GET /admin/stats/overview?range=0`
+
+```json
+{
+  "code": 200,
+  "message": "Stats fetched successfully",
+  "data": {
+    "recentComments": [
+      { "date": "2025-06", "count": 12 },
+      { "date": "2025-07", "count": 8 },
+      { "date": "2025-08", "count": 15 },
+      { "date": "2025-09", "count": 0 },
+      { "date": "2025-10", "count": 22 },
+      { "date": "2025-11", "count": 18 },
+      { "date": "2025-12", "count": 5 },
+      { "date": "2026-01", "count": 10 },
+      { "date": "2026-02", "count": 7 },
+      { "date": "2026-03", "count": 14 },
+      { "date": "2026-04", "count": 9 },
+      { "date": "2026-05", "count": 3 }
+    ]
+  }
+}
+```
+
+**响应（失败）**：
+```json
+{
+  "code": 401,
+  "message": "Invalid token"
+}
+```
+
+### 用户列表 (GET `/admin/stats/users`)
+
+> 按用户名+邮箱唯一标识用户，显示每个用户的评论统计
+
+**查询参数**：
+- `page`：查询页数（默认 1）
+- `limit`：每页用户数（默认 20）
+
+**响应（成功）**：
+```json
+{
+  "code": 200,
+  "message": "Users fetched successfully",
+  "data": {
+    "users": [
+      {
+        "author": "张三",
+        "email": "zhangsan@example.com",
+        "commentCount": 15,
+        "approvedCount": 12,
+        "pendingCount": 2,
+        "deletedCount": 1,
+        "firstCommentDate": "2024-01-01T00:00:00.000Z",
+        "lastCommentDate": "2026-04-27T10:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "totalPage": 2
+    }
+  }
+}
+```
+
+### 用户的评论列表 (GET `/admin/stats/users/comments`)
+
+> 获取指定用户的所有评论详情
+
+**查询参数**：
+- `author`：作者昵称（必需）
+- `email`：邮箱（必需）
+- `page`：查询页数（默认 1）
+
+**响应（成功）**：
+```json
+{
+  "code": 200,
+  "message": "User comments fetched successfully",
+  "data": {
+    "comments": [
+      {
+        "id": 123,
+        "pubDate": "2025-10-23T10:00:00Z",
+        "postSlug": "/posts/my-article",
+        "author": "张三",
+        "email": "zhangsan@example.com",
+        "url": null,
+        "ipAddress": "192.168.1.1",
+        "os": "Windows 10",
+        "browser": "Chrome 96",
+        "contentText": "写得真好！",
+        "contentHtml": "<p>写得真好！</p>",
+        "status": "approved"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "totalPage": 2
+    }
+  }
+}
+```
+
+**响应（失败）**：
+```json
+{
+  "code": 400,
+  "message": "author and email are required"
+}
+```
+
+---
+
+### 导出评论数据 (GET `/admin/data/export/comments`)
+
+> 导出所有评论为 JSON 格式，用于备份或迁移
+
+**查询参数**：无
+
+**响应（成功）**：
+```json
+{
+  "code": 200,
+  "message": "Comments exported",
+  "data": {
+    "exportedAt": "2026-05-02T10:00:00.000Z",
+    "type": "comments",
+    "version": "1.0",
+    "total": 100,
+    "comments": [
+      {
+        "id": 1,
+        "pubDate": "2025-10-23T10:00:00.000Z",
+        "postSlug": "/posts/my-article",
+        "author": "张三",
+        "email": "zhangsan@example.com",
+        "url": "https://example.com",
+        "ipAddress": "192.168.1.1",
+        "os": "Windows 10",
+        "browser": "Chrome 96",
+        "contentText": "写得真好！",
+        "contentHtml": "<p>写得真好！</p>",
+        "parentId": null,
+        "status": "approved"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 导出系统设置 (GET `/admin/data/export/settings`)
+
+> 导出系统设置，含 `email_password`，不含 `admin_name`/`admin_password`
+
+**查询参数**：无
+
+**响应（成功）**：
+```json
+{
+  "code": 200,
+  "message": "Settings exported",
+  "data": {
+    "exportedAt": "2026-05-02T10:00:00.000Z",
+    "type": "settings",
+    "version": "1.0",
+    "settings": {
+      "site_name": "Momo Blog",
+      "admin_email": "admin@example.com",
+      "smtp_host": "smtp.example.com",
+      "smtp_port": "465",
+      "email_user": "notify@example.com",
+      "email_password": "actual-password",
+      "email_secure": "true",
+      "allow_origin": "*",
+      "email_enabled": "true",
+      "reply_template": "...",
+      "notification_template": "..."
+    }
+  }
+}
+```
+
+---
+
+### 导入评论数据 (POST `/admin/data/import/comments`)
+
+> 导入之前导出的评论 JSON 文件数据
+
+**请求体**：
+```json
+{
+  "comments": [
+    {
+      "postSlug": "/posts/my-article",
+      "author": "张三",
+      "email": "zhangsan@example.com",
+      "contentText": "写得真好！",
+      "contentHtml": "<p>写得真好！</p>",
+      "pubDate": "2025-10-23T10:00:00.000Z",
+      "status": "approved"
+    }
+  ]
+}
+```
+
+**响应（成功）**：
+```json
+{
+  "code": 200,
+  "message": "导入完成，成功 10 条，失败 0 条",
+  "data": {
+    "imported": 10
+  }
+}
+```
+
+**响应（部分失败）**：
+```json
+{
+  "code": 200,
+  "message": "导入完成，成功 8 条，失败 2 条",
+  "data": {
+    "imported": 8,
+    "errors": [
+      "第 3 条缺少必填字段",
+      "第 7 条导入失败: ..."
+    ]
+  }
+}
+```
+
+---
+
+### 导入系统设置 (POST `/admin/data/import/settings`)
+
+> 导入之前导出的系统设置 JSON 数据
+
+**请求体**：
+```json
+{
+  "site_name": "Momo Blog",
+  "smtp_host": "smtp.example.com",
+  "smtp_port": "465",
+  "email_user": "notify@example.com",
+  "email_password": "actual-password"
+}
+```
+
+**响应（成功）**：
+```json
+{
+  "code": 200,
+  "message": "设置导入完成，已更新 5 项",
+  "data": {
+    "updated": 5
+  }
 }
 ```
 

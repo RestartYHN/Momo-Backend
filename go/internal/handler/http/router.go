@@ -11,10 +11,8 @@ import (
 // AuthMiddleware 验证管理 Key
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 1. 获取 Authorization Header
 		authHeader := c.GetHeader("Authorization")
 
-		// 2. 检查格式是否以 "Bearer " 开头
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"code":    401,
@@ -23,10 +21,8 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 3. 提取 Token 部分（去除 "Bearer " 后的字符串）
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
-		// 4. 验证 Token 是否有效
 		if token == "" || !utils.IsTokenValid(token) {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"code":    401,
@@ -35,7 +31,6 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 验证通过，继续后续流程
 		c.Next()
 	}
 }
@@ -51,15 +46,24 @@ func RegisterRoutes(r *gin.Engine, h *CommentHandler) {
 	// 2. 管理员接口
 	admin := r.Group("/admin")
 	{
-		// 登录接口无需校验
 		admin.POST("/login", h.Login)
 
-		// 评论管理接口：需 Authorization 校验
 		auth := admin.Group("/")
 		auth.Use(AuthMiddleware())
 		{
+			auth.GET("/settings", h.GetSettings)
+			auth.PUT("/settings", h.UpdateSettings)
+			auth.POST("/settings/test-email", h.TestEmail)
+			auth.PUT("/password", h.ChangePassword)
 			auth.GET("/comments/list", h.ListAllComments)
 			auth.PUT("/comments/status", h.UpdateCommentStatus)
+			auth.GET("/stats/overview", h.GetStatsOverview)
+			auth.GET("/stats/users", h.GetUserList)
+			auth.GET("/stats/users/comments", h.GetUserComments)
+			auth.GET("/data/export/settings", h.ExportSettings)
+			auth.GET("/data/export/comments", h.ExportComments)
+			auth.POST("/data/import/comments", h.ImportComments)
+			auth.POST("/data/import/settings", h.ImportSettings)
 		}
 	}
 }

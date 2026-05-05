@@ -65,4 +65,61 @@ interface CommentAdminResponse {
   }
 }
 
-export type { CommentsResponse, NestedCommentsResponse, NestedComment, Comment, CommentAdmin, CommentAdminResponse };
+// Stats types
+interface UserStats {
+  author: string;
+  email: string;
+  commentCount: number;
+  approvedCount: number;
+  pendingCount: number;
+  deletedCount: number;
+  firstCommentDate: string;
+  lastCommentDate: string;
+}
+
+interface StatsOverview {
+  totalComments: number;
+  totalUsers: number;
+  totalPosts: number;
+  statusDistribution: {
+    approved: number;
+    pending: number;
+    deleted: number;
+  };
+  recentComments: {
+    date: string;
+    count: number;
+  }[];
+  topCommenters: {
+    author: string;
+    email: string;
+    count: number;
+    lastCommentDate: string;
+  }[];
+}
+
+interface StatsOverviewResponse {
+  code: number;
+  message: string;
+  data: StatsOverview;
+}
+
+interface UserListResponse {
+  code: number;
+  message: string;
+  data: {
+    users: UserStats[];
+    pagination: Pagination;
+  }
+}
+
+interface UserCommentsResponse {
+  code: number;
+  message: string;
+  data: {
+    comments: CommentAdmin[];
+    pagination: Pagination;
+  }
+}
+
+export type { CommentsResponse, NestedCommentsResponse, NestedComment, Comment, CommentAdmin, CommentAdminResponse, StatsOverview, StatsOverviewResponse, UserStats, UserListResponse, UserCommentsResponse };

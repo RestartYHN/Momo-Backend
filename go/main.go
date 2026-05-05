@@ -12,6 +12,7 @@ import (
 
 	"momo-backend-go/internal/config"
 	h "momo-backend-go/internal/handler/http"
+	"momo-backend-go/internal/pkg/utils"
 	"momo-backend-go/internal/repository/sqlite"
 
 	"github.com/gin-gonic/gin"
@@ -19,12 +20,27 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+const Version = "1.3.2"
+
 func main() {
 
 	// go func() {
 	// 	// 启动一个独立的端口供 pprof 访问
 	// 	http.ListenAndServe("0.0.0.0:6060", nil)
 	// }()
+
+	// 处理命令行参数
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "--version", "-v":
+			fmt.Printf("momo-backend version %s\n", Version)
+			os.Exit(0)
+		default:
+			fmt.Printf("未知的参数: %s\n", os.Args[1])
+			fmt.Printf("使用 --version 或 -v 查看版本信息\n")
+			os.Exit(1)
+		}
+	}
 
 	gin.SetMode(gin.ReleaseMode)
 
@@ -49,21 +65,31 @@ func main() {
 		log.Fatalf("初始化表结构失败: %v", err)
 	}
 
-	// 4. 初始化
+	// 4. 初始化 Settings 和 Repo
+	utils.InitSettingsDB(db)
 	repo := sqlite.NewCommentRepository(db)
-	handler := &h.CommentHandler{Repo: repo}
+	handler := &h.CommentHandler{Repo: repo, Version: Version}
 
 	// 5. 设置 Gin 引擎
 	r := gin.Default()
 
-	// 全局中间件：跨域处理
+	// 全局中间件：跨域处理（从数据库读取 allow_origin）
 	r.Use(func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
-		allowOrigins := strings.Split(cfg.AllowOrigin, ",")
+		if origin == "" {
+			c.Next()
+			return
+		}
+
+		allowOriginStr := utils.GetSetting("allow_origin")
+		allowedOrigins := strings.Split(allowOriginStr, ",")
+		for i := range allowedOrigins {
+			allowedOrigins[i] = strings.TrimSpace(allowedOrigins[i])
+		}
 
 		isAllowed := false
-		for _, o := range allowOrigins {
-			if strings.TrimSpace(o) == origin {
+		for _, o := range allowedOrigins {
+			if o == origin {
 				isAllowed = true
 				break
 			}
@@ -103,7 +129,7 @@ func main() {
 	fmt.Printf("--- 评论系统后端已启动 ---\n")
 	fmt.Printf("监听地址: %s\n", addr)
 	fmt.Printf("数据库路径: %s\n", dbPath)
-	fmt.Printf("管理员名称: %s\n", cfg.AdminName)
+	fmt.Printf("版本: %s\n", Version)
 
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("服务器启动失败: %v", err)

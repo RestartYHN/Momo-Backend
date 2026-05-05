@@ -1,0 +1,72 @@
+import { Context } from 'hono';
+import { Bindings } from '../../bindings';
+import { getAllSettings, getSetting, setSetting } from '../../utils/settings';
+import { sendTestEmail } from '../../utils/email';
+
+const SENSITIVE_KEYS = new Set(["admin_password", "email_password"]);
+
+const ALLOWED_SETTINGS = new Set([
+  "site_name", "admin_email", "admin_name",
+  "smtp_host", "smtp_port", "email_user", "email_password", "email_secure",
+  "allow_origin", "email_enabled",
+  "reply_template", "notification_template",
+]);
+
+export const getSettings = async (c: Context<{ Bindings: Bindings }>) => {
+  const all = await getAllSettings(c.env);
+
+  const filtered: Record<string, string> = {};
+  for (const key of ALLOWED_SETTINGS) {
+    if (key in all) {
+      filtered[key] = SENSITIVE_KEYS.has(key) ? "" : all[key];
+    }
+  }
+  if (!("email_enabled" in filtered)) {
+    filtered.email_enabled = "true";
+  }
+
+  return c.json({ code: 200, message: "Settings fetched", data: filtered });
+};
+
+export const updateSettings = async (c: Context<{ Bindings: Bindings }>) => {
+  const body = await c.req.json() as Record<string, string>;
+  if (!body || typeof body !== "object") {
+    return c.json({ code: 400, message: "Invalid request body" }, 400);
+  }
+
+  for (const key of Object.keys(body)) {
+    if (!ALLOWED_SETTINGS.has(key)) {
+      return c.json({ code: 400, message: `Setting "${key}" is not allowed` }, 400);
+    }
+  }
+
+  const smtpChanged = "smtp_host" in body || "smtp_port" in body || "email_user" in body || "email_password" in body;
+
+  for (const [key, value] of Object.entries(body)) {
+    if (value !== undefined && value !== null) {
+      await setSetting(c.env, key, String(value));
+    }
+  }
+
+  console.log("Settings updated:", Object.keys(body));
+
+  return c.json({
+    code: 200,
+    message: "Settings updated. Some changes may require a restart to take full effect.",
+    smtpChanged,
+  });
+};
+
+export const testEmail = async (c: Context<{ Bindings: Bindings }>) => {
+  const adminEmail = await getSetting(c.env, "admin_email");
+  if (!adminEmail) {
+    return c.json({ code: 400, message: 'Admin email is not configured. ' }, 400);
+  }
+
+  try {
+    await sendTestEmail(c.env, adminEmail);
+    return c.json({ code: 200, message: 'A test email has been sent' });
+  } catch (e: any) {
+    return c.json({ code: 400, message: '邮件发送失败，请检查 SMTP 配置' }, 400);
+  }
+};

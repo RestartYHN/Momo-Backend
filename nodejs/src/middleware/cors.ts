@@ -1,21 +1,24 @@
 import cors from "@koa/cors"
+import { getSetting } from "../utils/settings";
 
-const allowedOrigins: string[] = process.env.ALLOW_ORIGIN?.split(",") ?? [];
-const CheckAllowOrigins = (requestOrigin: string) : string => {
-  // console.log(`Checking origin: ${requestOrigin}`);
-  if(process.env.NODE_ENV === "development") {
-    // console.log(`Development, allow origin: ${requestOrigin}`);
-    return "*";
-  }
-  if (process.env.ALLOW_ORIGIN === "*" || allowedOrigins.includes(requestOrigin)) {
-    // console.log(`Allow origin: ${requestOrigin}`);
-    return requestOrigin;
-  }
+const CheckAllowOrigins = async (requestOrigin: string): Promise<string> => {
+  if (!requestOrigin) return "";
+
+  const allowOriginStr = await getSetting("allow_origin");
+  if (!allowOriginStr) return "";
+
+  const allowedOrigins = allowOriginStr.split(",").map(s => s.trim()).filter(Boolean);
+
+  if (allowedOrigins.includes("*")) return "*";
+  if (allowedOrigins.includes(requestOrigin)) return requestOrigin;
   return "";
 };
 
 const corsMiddleware = cors({
-    origin: (ctx) => CheckAllowOrigins(ctx.get("Origin")),
+    origin: async (ctx) => {
+      const origin = ctx.get("Origin");
+      return CheckAllowOrigins(origin);
+    },
     credentials: true
 });
 

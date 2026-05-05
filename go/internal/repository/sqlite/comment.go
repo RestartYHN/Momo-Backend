@@ -4,6 +4,8 @@ import (
 	"context"
 	"momo-backend-go/internal/model"
 	"momo-backend-go/internal/repository"
+	"strconv"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite" // 注册驱动
@@ -45,6 +47,17 @@ func InitSchema(db *sqlx.DB) error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_post_slug ON Comment(post_slug);
 	CREATE INDEX IF NOT EXISTS idx_status ON Comment(status);`
+
+	// Settings table for web-based configuration
+	settingSchema := `
+	CREATE TABLE IF NOT EXISTS Settings (
+		key TEXT PRIMARY KEY,
+		value TEXT NOT NULL,
+		updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+	);`
+	if _, err := db.Exec(settingSchema); err != nil {
+		return err
+	}
 
 	_, err := db.Exec(schema)
 	return err
@@ -107,19 +120,270 @@ func (r *commentRepo) Delete(ctx context.Context, id int64) error {
 	return err
 }
 
-func (r *commentRepo) List(ctx context.Context, offset, limit int) ([]*model.Comment, int64, error) {
+func (r *commentRepo) List(ctx context.Context, offset, limit int, status string) ([]*model.Comment, int64, error) {
 	var comments []*model.Comment
 	var total int64
 
-	// 获取总数
-	err := r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM Comment")
+	var err error
+	if status != "" {
+		err = r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM Comment WHERE status = ?", status)
+		if err != nil {
+			return nil, 0, err
+		}
+		err = r.db.SelectContext(ctx, &comments, "SELECT * FROM Comment WHERE status = ? ORDER BY pub_date DESC LIMIT ? OFFSET ?", status, limit, offset)
+	} else {
+		err = r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM Comment")
+		if err != nil {
+			return nil, 0, err
+		}
+		err = r.db.SelectContext(ctx, &comments, "SELECT * FROM Comment ORDER BY pub_date DESC LIMIT ? OFFSET ?", limit, offset)
+	}
+
+	return comments, total, err
+}
+
+func (r *commentRepo) ListAll(ctx context.Context) ([]*model.Comment, error) {
+	var comments []*model.Comment
+	err := r.db.SelectContext(ctx, &comments, "SELECT * FROM Comment ORDER BY pub_date ASC")
+	return comments, err
+}
+
+func (r *commentRepo) GetStatsOverview(ctx context.Context, rangeParam string) (*model.StatsOverview, error) {
+	stats := &model.StatsOverview{}
+
+	var daysBack int
+	var isAll bool
+	switch rangeParam {
+	case "all", "0":
+		isAll = true
+		daysBack = 365
+	default:
+		if r, err := strconv.Atoi(rangeParam); err == nil && r > 0 {
+			daysBack = r - 1
+		} else {
+			daysBack = 6
+		}
+	}
+
+	// 1. 总评论数
+	_ = r.db.GetContext(ctx, &stats.TotalComments, "SELECT COUNT(*) FROM Comment")
+
+	// 2. 总用户数 (author + email 唯一组合)
+	_ = r.db.GetContext(ctx, &stats.TotalUsers, "SELECT COUNT(*) FROM (SELECT DISTINCT author, email FROM Comment)")
+
+	// 3. 总文章数
+	_ = r.db.GetContext(ctx, &stats.TotalPosts, "SELECT COUNT(DISTINCT post_slug) FROM Comment")
+
+	// 4. 状态分布
+	var rows []struct {
+		Status string `db:"status"`
+		Count  int64  `db:"count"`
+	}
+	_ = r.db.SelectContext(ctx, &rows, "SELECT status, COUNT(*) as count FROM Comment GROUP BY status")
+	for _, row := range rows {
+		switch row.Status {
+		case "approved":
+			stats.StatusDistribution.Approved = row.Count
+		case "pending":
+			stats.StatusDistribution.Pending = row.Count
+		case "deleted":
+			stats.StatusDistribution.Deleted = row.Count
+		}
+	}
+
+	if isAll {
+			// 最近 12 个月：按月聚合
+			monthlyMap := make(map[string]int64)
+			now := time.Now()
+			for i := 11; i >= 0; i-- {
+				d := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -i, 0)
+				key := d.Format("2006-01")
+				monthlyMap[key] = 0
+			}
+			twelveMonthsAgo := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -11, 0)
+			var monthlyRows []struct {
+				MonthStr string `db:"month_str"`
+				Count    int64  `db:"count"`
+			}
+			_ = r.db.SelectContext(ctx, &monthlyRows, `
+				SELECT strftime('%Y-%m', pub_date / 1000, 'unixepoch') as month_str, COUNT(*) as count
+				FROM Comment
+				WHERE pub_date >= ?
+				GROUP BY month_str ORDER BY month_str ASC
+			`, twelveMonthsAgo.UnixMilli())
+			for _, row := range monthlyRows {
+				if _, ok := monthlyMap[row.MonthStr]; ok {
+					monthlyMap[row.MonthStr] = row.Count
+				}
+			}
+			for _, d := range getMonthRange(11) {
+				stats.RecentComments = append(stats.RecentComments, model.DateCount{Date: d, Count: monthlyMap[d]})
+			}
+	} else {
+		dateCountMap := make(map[string]int64)
+		for i := daysBack; i >= 0; i-- {
+			d := time.Now().AddDate(0, 0, -i)
+			key := d.Format("2006-01-02")
+			dateCountMap[key] = 0
+		}
+		var recentRows []struct {
+			DateStr string `db:"date_str"`
+			Count   int64  `db:"count"`
+		}
+		startDateStr := time.Now().AddDate(0, 0, -daysBack).Format("2006-01-02")
+		_ = r.db.SelectContext(ctx, &recentRows, `
+			SELECT strftime('%Y-%m-%d', pub_date / 1000, 'unixepoch') as date_str, COUNT(*) as count
+			FROM Comment
+			WHERE date(pub_date / 1000, 'unixepoch') >= ?
+			GROUP BY date_str ORDER BY date_str ASC
+		`, startDateStr)
+
+		for _, row := range recentRows {
+			if _, ok := dateCountMap[row.DateStr]; ok {
+				dateCountMap[row.DateStr] = row.Count
+			}
+		}
+		for _, d := range getDateRange(daysBack) {
+			stats.RecentComments = append(stats.RecentComments, model.DateCount{Date: d, Count: dateCountMap[d]})
+		}
+	}
+
+	// 6. 热门评论者 Top 5
+	type topCommenterRow struct {
+		Author  string `db:"author"`
+		Email   string `db:"email"`
+		Count   int64  `db:"count"`
+		MaxDate int64  `db:"max_date"`
+	}
+	var topRows []topCommenterRow
+	_ = r.db.SelectContext(ctx, &topRows, `
+		SELECT author, email, COUNT(*) as count, MAX(pub_date) as max_date
+		FROM Comment
+		GROUP BY author, email
+		ORDER BY count DESC
+		LIMIT 5
+	`)
+	for _, row := range topRows {
+		stats.TopCommenters = append(stats.TopCommenters, model.TopCommenter{
+			Author:          row.Author,
+			Email:           row.Email,
+			Count:           row.Count,
+			LastCommentDate: time.UnixMilli(row.MaxDate).UTC().Format("2006-01-02T15:04:05.000Z"),
+		})
+	}
+
+	return stats, nil
+}
+
+func (r *commentRepo) GetUserList(ctx context.Context, offset, limit int) ([]*model.UserStats, int64, error) {
+	var total int64
+	_ = r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM (SELECT DISTINCT author, email FROM Comment)")
+
+	type userRow struct {
+		Author        string `db:"author"`
+		Email         string `db:"email"`
+		CommentCount  int64  `db:"commentCount"`
+		ApprovedCount int64  `db:"approvedCount"`
+		PendingCount  int64  `db:"pendingCount"`
+		DeletedCount  int64  `db:"deletedCount"`
+		MinDate       int64  `db:"min_date"`
+		MaxDate       int64  `db:"max_date"`
+	}
+	var rows []userRow
+	err := r.db.SelectContext(ctx, &rows, `
+		SELECT
+			author, email,
+			COUNT(*) as commentCount,
+			COALESCE(SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END), 0) as approvedCount,
+			COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) as pendingCount,
+			COALESCE(SUM(CASE WHEN status = 'deleted' THEN 1 ELSE 0 END), 0) as deletedCount,
+			MIN(pub_date) as min_date,
+			MAX(pub_date) as max_date
+		FROM Comment
+		GROUP BY author, email
+		ORDER BY commentCount DESC
+		LIMIT ? OFFSET ?
+	`, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
-	query := `SELECT * FROM Comment ORDER BY pub_date DESC LIMIT ? OFFSET ?`
-	err = r.db.SelectContext(ctx, &comments, query, limit, offset)
+	users := make([]*model.UserStats, 0, len(rows))
+	for _, row := range rows {
+		users = append(users, &model.UserStats{
+			Author:           row.Author,
+			Email:            row.Email,
+			CommentCount:     row.CommentCount,
+			ApprovedCount:    row.ApprovedCount,
+			PendingCount:     row.PendingCount,
+			DeletedCount:     row.DeletedCount,
+			FirstCommentDate: time.UnixMilli(row.MinDate).UTC().Format("2006-01-02T15:04:05.000Z"),
+			LastCommentDate:  time.UnixMilli(row.MaxDate).UTC().Format("2006-01-02T15:04:05.000Z"),
+		})
+	}
 
-	return comments, total, err
+	return users, total, nil
+}
+
+func getDateRange(daysBack int) []string {
+	var dates []string
+	for i := daysBack; i >= 0; i-- {
+		d := time.Now().AddDate(0, 0, -i)
+		dates = append(dates, d.Format("2006-01-02"))
+	}
+	return dates
+}
+
+func getMonthRange(monthsBack int) []string {
+	var months []string
+	now := time.Now()
+	for i := monthsBack; i >= 0; i-- {
+		d := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -i, 0)
+		months = append(months, d.Format("2006-01"))
+	}
+	return months
+}
+
+func (r *commentRepo) GetUserComments(ctx context.Context, author, email string, offset, limit int) ([]*model.AdminCommentResponse, int64, error) {
+
+	var total int64
+	_ = r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM Comment WHERE author = ? AND email = ?", author, email)
+
+	var comments []*model.Comment
+	err := r.db.SelectContext(ctx, &comments, `
+		SELECT * FROM Comment WHERE author = ? AND email = ? ORDER BY pub_date DESC LIMIT ? OFFSET ?
+	`, author, email, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	resp := make([]*model.AdminCommentResponse, 0, len(comments))
+	for _, c := range comments {
+		resp = append(resp, &model.AdminCommentResponse{
+			ID:          c.ID,
+			PubDate:     time.UnixMilli(c.PubDate).UTC().Format("2006-01-02T15:04:05.000Z"),
+			PostSlug:    c.PostSlug,
+			Author:      c.Author,
+			Email:       c.Email,
+			URL:         c.URL,
+			IPAddress:   c.IPAddress,
+			OS:          c.OS,
+			Browser:     c.Browser,
+			ContentText: c.ContentText,
+			ContentHtml: c.ContentHTML,
+			Status:      c.Status,
+		})
+	}
+
+	return resp, total, nil
+}
+
+
+func (r *commentRepo) GetLastCommentByIP(ctx context.Context, ip string) (*model.Comment, error) {
+	var c model.Comment
+	err := r.db.GetContext(ctx, &c, "SELECT * FROM Comment WHERE ip_address = ? ORDER BY pub_date DESC LIMIT 1", ip)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
 }

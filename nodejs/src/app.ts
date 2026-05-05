@@ -15,6 +15,7 @@ app.use(corsMiddleware)
    .use(routerMiddleware.routes())
    .use(routerMiddleware.allowedMethods());
 
-app.listen(process.env.PORT);
+const port = process.env.PORT || '17171';
+app.listen(port);
 
-console.log(`Server running on http://localhost:${process.env.PORT}`);
+console.log(`Server running on http://localhost:${port}`);

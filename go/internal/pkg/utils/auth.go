@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"crypto/sha256"
+	"crypto/rand"
 	"fmt"
 	"net"
 	"strings"
@@ -85,9 +85,11 @@ func (l *LoginLimiter) ResetAttempt(ip string) {
 	delete(l.blockedUntil, ip)
 }
 
-// GenerateTempKey 生成并保存临时密钥
+// GenerateTempKey 使用 CSPRNG 生成临时密钥
 func GenerateTempKey(name string) string {
-	token := fmt.Sprintf("%x", sha256.Sum256([]byte(name+time.Now().String())))[:32]
+	b := make([]byte, 32)
+	rand.Read(b)
+	token := fmt.Sprintf("%x", b)
 
 	// 设置 20 分钟过期时间
 	expiration := time.Now().Add(20 * time.Minute)
