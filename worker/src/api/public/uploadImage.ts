@@ -42,7 +42,7 @@ export const uploadImage = async (c: Context<{ Bindings: Bindings }>) => {
       { expirationTtl: 60 * 60 * 24 * 365 }
     )
 
-    return c.json({ success: true, url: `/img/${imgId}` })
+    return c.json({ success: true, url: `/api/img/${imgId}` })
   } catch (err: any) {
     console.error('Upload error:', err.message || err)
     return c.json({ message: err.message || 'Upload failed' }, 500)

@@ -36,7 +36,7 @@ app.post('/api/comments', postComment)
 app.post('/api/comments/:id/like', likeComment)
 app.post('/api/comments/:id/unlike', unlikeComment)
 app.post('/api/upload', uploadImage)
-app.get('/img/:id', serveImage)
+app.get('/api/img/:id', serveImage)
 
 app.post('/admin/login', adminLogin)
 app.use('/admin/*', adminAuth)
