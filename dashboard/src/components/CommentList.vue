@@ -56,6 +56,7 @@
             <th class="px-6 py-4 text-xs font-semibold uppercase w-48 text-gray-500">作者</th>
             <th class="px-6 py-4 text-xs font-semibold uppercase text-gray-500">评论内容</th>
             <th class="px-6 py-4 text-xs font-semibold uppercase text-gray-500">状态</th>
+            <th class="px-6 py-4 text-xs font-semibold uppercase w-16 text-center text-gray-500">赞</th>
             <th class="px-6 py-4 text-xs font-semibold uppercase text-right text-gray-500">管理</th>
           </tr>
         </thead>
@@ -83,8 +84,15 @@
                 {{ item.status }}
               </span>
             </td>
+            <td class="px-6 py-4 text-center text-sm text-gray-500">
+              <span class="font-mono">{{ item.likeCount ?? 0 }}</span>
+            </td>
             <td class="hidden md:table-cell px-6 py-4 text-right">
               <div class="flex justify-end space-x-2" @click.stop>
+                <button v-if="(item.likeCount ?? 0) > 0" @click="$emit('clearLikes', item.id)"
+                  class="w-8 h-8 flex items-center justify-center rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white transition-all" title="清除点赞">
+                  <i class="fa-solid fa-heart-crack text-xs"></i>
+                </button>
                 <button v-if="item.status !== 'approved'" @click="$emit('update', item.id, 'approved')" 
                   class="w-8 h-8 flex items-center justify-center rounded-lg bg-green-50 text-green-600 hover:bg-green-600 hover:text-white transition-all">
                   <i class="fa-solid fa-check text-xs"></i>
@@ -139,7 +147,7 @@ import { ref } from 'vue'
 import CommentDetailModal from '../components/CommentDetailModal.vue'
 
 defineProps(['data', 'pagination']);
-defineEmits(['update', 'page-change']);
+defineEmits(['update', 'page-change', 'clearLikes']);
 
 const showModal = ref(false)
 const selectedComment = ref({})

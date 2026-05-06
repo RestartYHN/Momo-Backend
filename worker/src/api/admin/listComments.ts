@@ -37,6 +37,7 @@ export const listComments = async (c: Context<{ Bindings: Bindings }>) => {
     browser: row.browser,
     contentText: row.content_text,
     contentHtml: row.content_html,
+    likeCount: row.like_count,
     status: row.status
   }));
 

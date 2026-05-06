@@ -26,6 +26,7 @@
         :pagination="pagination"
         @page-change="handlePageChange"
         @update="updateStatus"
+        @clear-likes="clearLikes"
       />
     </template>
   </AdminLayout>
@@ -90,6 +91,16 @@ const updateStatus = async (id, status) => {
 };
 
 const handlePageChange = (p) => fetchComments(p);
+
+const clearLikes = async (id) => {
+  try {
+    await request.delete(`/admin/comments/likes?id=${id}`);
+    toast.success('已清除点赞');
+    fetchComments(pagination.value.page);
+  } catch (error) {
+    toast.error('清除失败');
+  }
+};
 
 const logout = () => {
   localStorage.removeItem('token');
