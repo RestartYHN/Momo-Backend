@@ -31,10 +31,15 @@ export const getComments = async (c: Context<{ Bindings: Bindings }>) => {
     const likedCommentIds = new Set((likedRows.results || []).map((item) => item.comment_id))
 
     // 2. 批量处理头像并格式化
+    const authorMap = new Map<number, string>()
+    for (const row of results) {
+      authorMap.set(row.id, row.author)
+    }
     const allComments = await Promise.all(results.map(async (row: any) => ({
       ...row,
       likeCount: Number(row.likeCount || 0),
       likedByMe: likedCommentIds.has(row.id),
+      parentAuthor: row.parentId ? authorMap.get(row.parentId) || null : null,
       avatar: await getCravatar(row.email),
       replies: []
     })))
