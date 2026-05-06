@@ -70,6 +70,7 @@ export const getComments = async (c: Context<{ Bindings: Bindings }>) => {
             page,
             limit,
             totalPage: Math.ceil(allComments.length / limit),
+            totalCount: allComments.length,
           }
         } 
       })
@@ -84,7 +85,8 @@ export const getComments = async (c: Context<{ Bindings: Bindings }>) => {
           pagination: {
             page,
             limit,
-            totalPage: Math.ceil(allComments.length / limit)
+            totalPage: Math.ceil(allComments.length / limit),
+            totalCount: allComments.length
           }
         }
       })
