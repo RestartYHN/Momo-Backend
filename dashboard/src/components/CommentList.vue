@@ -3,7 +3,7 @@
     <!-- 移动端：卡片布局 -->
     <div class="md:hidden divide-y divide-gray-100">
       <div v-for="item in data" :key="item.id" @click="openDetail(item)" 
-        class="p-4 transition-colors cursor-pointer hover:bg-blue-50/40">
+        :class="['p-4 transition-colors cursor-pointer hover:bg-blue-50/40', item.pinned ? 'border-l-4 border-indigo-500 bg-indigo-50/30' : '']">
         <div class="space-y-3">
           <!-- 头部：作者 + 状态 -->
           <div class="flex items-start justify-between gap-2">
@@ -68,7 +68,7 @@
         </thead>
         <tbody class="divide-y divide-gray-100">
           <tr v-for="item in data" :key="item.id" @click="openDetail(item)" 
-            class="transition-colors cursor-pointer hover:bg-blue-50/40">
+            :class="['transition-colors cursor-pointer hover:bg-blue-50/40', item.pinned ? 'border-l-4 border-indigo-500 bg-indigo-50/20' : '']">
             <td class="px-6 py-4">
               <div class="flex flex-col">
                 <span class="font-bold text-sm max-w-[180px] truncate text-gray-800">{{ item.author }}</span>
