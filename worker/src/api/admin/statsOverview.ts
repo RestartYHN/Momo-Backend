@@ -8,20 +8,18 @@ export const statsOverview = async (c: Context<{ Bindings: Bindings }>) => {
 
   // 1. 总评论数
   const totalComments = await c.env.MOMO_DB.prepare(
-    "SELECT COUNT(*) as count FROM Comment"
+    "SELECT COUNT(*) as count FROM Comment WHERE status != 'deleted'"
   ).first<{ count: number }>();
 
-  // 2. 总用户数
   const totalUsers = await c.env.MOMO_DB.prepare(
-    "SELECT COUNT(*) as count FROM (SELECT DISTINCT author, email FROM Comment)"
+    "SELECT COUNT(*) as count FROM (SELECT DISTINCT author, email FROM Comment WHERE status != 'deleted')"
   ).first<{ count: number }>();
 
-  // 3. 总文章数
   const totalPosts = await c.env.MOMO_DB.prepare(
-    "SELECT COUNT(DISTINCT post_slug) as count FROM Comment"
+    "SELECT COUNT(DISTINCT post_slug) as count FROM Comment WHERE status != 'deleted'"
   ).first<{ count: number }>();
 
-  // 4. 状态分布
+  // 4. 状态分布（包含已删除）
   const statusRows = await c.env.MOMO_DB.prepare(
     "SELECT status, COUNT(*) as count FROM Comment GROUP BY status"
   ).all<{ status: string; count: number }>();
@@ -47,7 +45,7 @@ export const statsOverview = async (c: Context<{ Bindings: Bindings }>) => {
     }
     const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
     const monthlyRows = await c.env.MOMO_DB.prepare(
-      "SELECT substr(pub_date, 1, 7) as month_str, COUNT(*) as count FROM Comment WHERE pub_date >= ? GROUP BY month_str ORDER BY month_str ASC"
+      "SELECT substr(pub_date, 1, 7) as month_str, COUNT(*) as count FROM Comment WHERE pub_date >= ? AND status != 'deleted' GROUP BY month_str ORDER BY month_str ASC"
     ).bind(twelveMonthsAgo.toISOString()).all<{ month_str: string; count: number }>();
     for (const row of monthlyRows.results || []) {
       if (monthlyMap.has(row.month_str)) {
@@ -69,7 +67,7 @@ export const statsOverview = async (c: Context<{ Bindings: Bindings }>) => {
     const sd = new Date();
     sd.setDate(sd.getDate() - daysBack);
     const recentRows = await c.env.MOMO_DB.prepare(
-      "SELECT substr(pub_date, 1, 10) as date_str, COUNT(*) as count FROM Comment WHERE pub_date >= ? GROUP BY date_str ORDER BY date_str ASC"
+      "SELECT substr(pub_date, 1, 10) as date_str, COUNT(*) as count FROM Comment WHERE pub_date >= ? AND status != 'deleted' GROUP BY date_str ORDER BY date_str ASC"
     ).bind(sd.toISOString()).all<{ date_str: string; count: number }>();
 
     for (const row of recentRows.results || []) {
@@ -84,7 +82,7 @@ export const statsOverview = async (c: Context<{ Bindings: Bindings }>) => {
 
   // 6. 热门评论者 Top 5
   const topRows = await c.env.MOMO_DB.prepare(
-    "SELECT author, email, COUNT(*) as count, MAX(pub_date) as last_date FROM Comment GROUP BY author, email ORDER BY count DESC LIMIT 5"
+    "SELECT author, email, COUNT(*) as count, MAX(pub_date) as last_date FROM Comment WHERE status != 'deleted' GROUP BY author, email ORDER BY count DESC LIMIT 5"
   ).all<{ author: string; email: string; count: number; last_date: string }>();
 
   const topCommenters = (topRows.results || []).map(r => ({
