@@ -20,7 +20,7 @@ export const serveImage = async (c: Context<{ Bindings: Bindings }>) => {
     return new Response(bytes, {
       headers: {
         'Content-Type': parsed.mime,
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Cache-Control': 'public, max-age=86400',
       },
     })
   } catch (err: any) {
