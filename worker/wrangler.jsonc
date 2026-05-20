@@ -28,5 +28,11 @@
 			"binding": "MOMO_AUTH_KV",
 			"id": "f7d52a95d6b7484a8540d4b65fa00de7"
 		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "MOMO_R2",
+			"bucket_name": "gallery"
+		}
 	]
 }
