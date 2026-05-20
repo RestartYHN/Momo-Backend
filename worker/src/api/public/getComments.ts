@@ -8,19 +8,19 @@ export const getComments = async (c: Context<{ Bindings: Bindings }>) => {
   const page = parseInt(c.req.query('page') || '1')
   const limit = Math.min(parseInt(c.req.query('limit') || '20'), 50)
   const nested = c.req.query('nested') !== 'false'
+  const sort_by = c.req.query('sort_by') === 'likes' ? 'like_count DESC, pub_date DESC' : 'pinned DESC, pub_date DESC'
   const offset = (page - 1) * limit
 
   if (!post_slug) return c.json({ message: "post_slug is required" }, 400)
 
   try {
-    // 1. 查询审核通过的评论
     const query = `
       SELECT id, author, email, url, content_text as contentText,
              content_html as contentHtml, pub_date as pubDate, parent_id as parentId,
-             like_count as likeCount
+             like_count as likeCount, pinned
       FROM Comment
       WHERE post_slug = ? AND status = "approved"
-      ORDER BY pub_date DESC
+      ORDER BY ${sort_by}
     `
     const { results } = await c.env.MOMO_DB.prepare(query).bind(post_slug).all()
 
@@ -30,21 +30,36 @@ export const getComments = async (c: Context<{ Bindings: Bindings }>) => {
     ).bind(fingerprint).all<{ comment_id: number }>()
     const likedCommentIds = new Set((likedRows.results || []).map((item) => item.comment_id))
 
-    // 2. 批量处理头像并格式化
+    // Load reactions
+    const reactionRows = await c.env.MOMO_DB.prepare(
+      'SELECT comment_id, reaction_type, COUNT(*) as cnt FROM CommentReaction GROUP BY comment_id, reaction_type'
+    ).all<{ comment_id: number, reaction_type: string, cnt: number }>()
+    const reactionMap = new Map<number, Record<string, number>>()
+    for (const r of reactionRows.results || []) {
+      if (!reactionMap.has(r.comment_id)) reactionMap.set(r.comment_id, {})
+      reactionMap.get(r.comment_id)![r.reaction_type] = r.cnt
+    }
+
+    const myReactions = await c.env.MOMO_DB.prepare(
+      'SELECT comment_id, reaction_type FROM CommentReaction WHERE fingerprint = ?'
+    ).bind(fingerprint).all<{ comment_id: number, reaction_type: string }>()
+
     const authorMap = new Map<number, string>()
     for (const row of results) {
       authorMap.set(row.id, row.author)
     }
     const allComments = await Promise.all(results.map(async (row: any) => ({
       ...row,
+      pinned: Number(row.pinned || 0),
       likeCount: Number(row.likeCount || 0),
       likedByMe: likedCommentIds.has(row.id),
+      reactions: reactionMap.get(row.id) || {},
+      myReactions: (myReactions.results || []).filter(r => r.comment_id === row.id).map(r => r.reaction_type),
       parentAuthor: row.parentId ? authorMap.get(row.parentId) || null : null,
       avatar: await getCravatar(row.email),
       replies: []
     })))
 
-    // 3. 处理嵌套逻辑
     if (nested) {
       const commentMap = new Map()
       const rootComments: any[] = []
@@ -58,9 +73,7 @@ export const getComments = async (c: Context<{ Bindings: Bindings }>) => {
         }
       })
 
-      // 对根评论进行分页
       const paginatedData = rootComments.slice(offset, offset + limit)
-      // console.log(paginatedData)
       return c.json({ 
         code: 200,
         message: 'Comments fetched successfully',
@@ -69,13 +82,12 @@ export const getComments = async (c: Context<{ Bindings: Bindings }>) => {
           pagination: {
             page,
             limit,
-            totalPage: Math.ceil(allComments.length / limit),
-            totalCount: allComments.length,
+            totalPage: Math.ceil(rootComments.length / limit),
+            totalCount: rootComments.length,
           }
         } 
       })
     } else {
-      // 非嵌套逻辑直接分页
       const paginatedData = allComments.slice(offset, offset + limit)
       return c.json({
         code: 200,

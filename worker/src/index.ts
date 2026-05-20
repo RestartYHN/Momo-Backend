@@ -8,6 +8,8 @@ import { getComments } from './api/public/getComments'
 import { postComment } from './api/public/postComment'
 import { likeComment } from './api/public/likeComment'
 import { unlikeComment } from './api/public/unlikeComment'
+import { reactComment } from './api/public/reactComment'
+import { unreactComment } from './api/public/unreactComment'
 import { uploadImage } from './api/public/uploadImage'
 import { serveImage } from './api/public/serveImage'
 import { adminLogin } from './api/admin/login'
@@ -21,6 +23,7 @@ import { userList } from './api/admin/userList'
 import { userComments } from './api/admin/userComments'
 import { exportSettings, exportComments } from './api/admin/dataExport'
 import { importComments, importSettings } from './api/admin/dataImport'
+import { pinComment } from './api/admin/pinComment'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -36,6 +39,8 @@ app.get('/api/comments', getComments)
 app.post('/api/comments', postComment)
 app.post('/api/comments/:id/like', likeComment)
 app.post('/api/comments/:id/unlike', unlikeComment)
+app.post('/api/comments/:id/react', reactComment)
+app.delete('/api/comments/:id/react', unreactComment)
 app.post('/api/upload', uploadImage)
 app.get('/api/img/:id', serveImage)
 
@@ -55,5 +60,6 @@ app.get('/admin/data/export/settings', exportSettings);
 app.get('/admin/data/export/comments', exportComments);
 app.post('/admin/data/import/comments', importComments);
 app.post('/admin/data/import/settings', importSettings);
+app.put('/admin/comments/:id/pin', pinComment);
 
 export default app
