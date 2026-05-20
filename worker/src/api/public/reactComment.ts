@@ -2,7 +2,7 @@ import { Context } from 'hono'
 import { Bindings } from '../../bindings'
 import { getCommentFingerprint } from '../../utils/fingerprint'
 
-const VALID_REACTIONS = ['👍','❤️','😂','😮','😢','🎉']
+const VALID_REACTIONS = ['❤️','😂','😅','👀','🎉','😮','😆','😉','😭','🍀']
 
 export const reactComment = async (c: Context<{ Bindings: Bindings }>) => {
   const id = parseInt(c.req.param('id'))
