@@ -3,6 +3,7 @@ import { Bindings } from '../../bindings'
 
 export const serveImage = async (c: Context<{ Bindings: Bindings }>) => {
   const id = c.req.param('id')
+  const cacheBust = c.req.query('v') || Date.now().toString()
 
   try {
     const raw = await c.env.MOMO_AUTH_KV.get(`img:${id}`)
