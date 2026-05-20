@@ -28,6 +28,12 @@
           
           <!-- 操作按钮 -->
           <div class="flex justify-end space-x-2 pt-2 border-t border-gray-100">
+            <button @click.stop="$emit('pin', item.id)" 
+              class="w-8 h-8 flex items-center justify-center rounded-lg transition-all flex-shrink-0"
+              :class="item.pinned ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white' : 'bg-gray-50 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600'"
+              :title="item.pinned ? '取消置顶' : '置顶'">
+              <i class="fa-solid fa-thumbtack text-xs"></i>
+            </button>
             <button v-if="item.status !== 'approved'" @click.stop="$emit('update', item.id, 'approved')" 
               class="w-8 h-8 flex items-center justify-center rounded-lg bg-green-50 text-green-600 hover:bg-green-600 hover:text-white transition-all flex-shrink-0">
               <i class="fa-solid fa-check text-xs"></i>
@@ -89,6 +95,12 @@
             </td>
             <td class="hidden md:table-cell px-6 py-4 text-right">
               <div class="flex justify-end space-x-2" @click.stop>
+                <button @click.stop="$emit('pin', item.id)"
+                  class="w-8 h-8 flex items-center justify-center rounded-lg transition-all"
+                  :class="item.pinned ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white' : 'bg-gray-50 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600'"
+                  :title="item.pinned ? '取消置顶' : '置顶'">
+                  <i class="fa-solid fa-thumbtack text-xs"></i>
+                </button>
                 <button v-if="(item.likeCount ?? 0) > 0" @click="$emit('clearLikes', item.id)"
                   class="w-8 h-8 flex items-center justify-center rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white transition-all" title="清除点赞">
                   <i class="fa-solid fa-heart-crack text-xs"></i>
@@ -147,7 +159,7 @@ import { ref } from 'vue'
 import CommentDetailModal from '../components/CommentDetailModal.vue'
 
 defineProps(['data', 'pagination']);
-defineEmits(['update', 'page-change', 'clearLikes']);
+defineEmits(['update', 'page-change', 'clearLikes', 'pin']);
 
 const showModal = ref(false)
 const selectedComment = ref({})

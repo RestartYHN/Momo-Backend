@@ -27,6 +27,7 @@
         @page-change="handlePageChange"
         @update="updateStatus"
         @clear-likes="clearLikes"
+        @pin="pinComment"
       />
     </template>
   </AdminLayout>
@@ -99,6 +100,16 @@ const clearLikes = async (id) => {
     fetchComments(pagination.value.page);
   } catch (error) {
     toast.error('清除失败');
+  }
+};
+
+const pinComment = async (id) => {
+  try {
+    await request.put(`/admin/comments/${id}/pin`);
+    toast.success('操作成功');
+    fetchComments(pagination.value.page);
+  } catch (error) {
+    toast.error('操作失败');
   }
 };
 
