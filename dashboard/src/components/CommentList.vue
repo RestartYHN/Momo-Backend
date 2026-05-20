@@ -3,7 +3,7 @@
     <!-- 移动端：卡片布局 -->
     <div class="md:hidden divide-y divide-gray-100">
       <div v-for="item in data" :key="item.id" @click="openDetail(item)" 
-        :class="['p-4 transition-colors cursor-pointer hover:bg-blue-50/40', item.pinned ? 'border-l-4 border-indigo-500 bg-indigo-50/30' : '']">
+        class="p-4 transition-colors cursor-pointer hover:bg-blue-50/40">
         <div class="space-y-3">
           <!-- 头部：作者 + 状态 -->
           <div class="flex items-start justify-between gap-2">
@@ -30,7 +30,7 @@
           <div class="flex justify-end space-x-2 pt-2 border-t border-gray-100">
             <button @click.stop="$emit('pin', item.id)" 
               class="w-8 h-8 flex items-center justify-center rounded-lg transition-all flex-shrink-0"
-              :class="item.pinned ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white' : 'bg-gray-50 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600'"
+              :class="item.pinned ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600'"
               :title="item.pinned ? '取消置顶' : '置顶'">
               <i class="fa-solid fa-thumbtack text-xs"></i>
             </button>
@@ -68,7 +68,7 @@
         </thead>
         <tbody class="divide-y divide-gray-100">
           <tr v-for="item in data" :key="item.id" @click="openDetail(item)" 
-            :class="['transition-colors cursor-pointer hover:bg-blue-50/40', item.pinned ? 'border-l-4 border-indigo-500 bg-indigo-50/20' : '']">
+            class="transition-colors cursor-pointer hover:bg-blue-50/40">
             <td class="px-6 py-4">
               <div class="flex flex-col">
                 <span class="font-bold text-sm max-w-[180px] truncate text-gray-800">{{ item.author }}</span>
@@ -97,7 +97,7 @@
               <div class="flex justify-end space-x-2" @click.stop>
                 <button @click.stop="$emit('pin', item.id)"
                   class="w-8 h-8 flex items-center justify-center rounded-lg transition-all"
-                  :class="item.pinned ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white' : 'bg-gray-50 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600'"
+                  :class="item.pinned ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600'"
                   :title="item.pinned ? '取消置顶' : '置顶'">
                   <i class="fa-solid fa-thumbtack text-xs"></i>
                 </button>
