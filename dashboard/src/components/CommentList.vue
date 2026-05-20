@@ -19,7 +19,7 @@
           
           <!-- 评论内容 -->
           <div class="border-t pt-3 border-gray-100">
-            <p class="text-sm line-clamp-2 leading-relaxed mb-2 break-words text-gray-600">{{ item.contentText }}</p>
+            <p class="text-xs line-clamp-1 leading-relaxed mb-2 break-words max-w-[240px] text-gray-600">{{ item.contentText }}</p>
             <div class="flex items-center space-x-2 text-[10px] text-gray-400">
               <i class="fa-regular fa-clock"></i>
               <span>{{ formatDate(item.pubDate) }}</span>
@@ -77,8 +77,8 @@
               </div>
             </td>
             <td class="px-6 py-4">
-              <div class="max-w-md">
-                <p class="text-sm line-clamp-2 leading-relaxed text-gray-600">{{ item.contentText }}</p>
+              <div class="max-w-sm">
+                <p class="text-xs line-clamp-1 leading-relaxed break-words text-gray-600">{{ item.contentText }}</p>
                 <div class="flex items-center mt-1 space-x-2 text-[10px] text-gray-400">
                   <i class="fa-regular fa-clock"></i>
                   <span>{{ formatDate(item.pubDate) }}</span>
@@ -101,10 +101,6 @@
                   :title="item.pinned ? '取消置顶' : '置顶'">
                   <i class="fa-solid fa-thumbtack text-xs"></i>
                 </button>
-                <button v-if="(item.likeCount ?? 0) > 0" @click="$emit('clearLikes', item.id)"
-                  class="w-8 h-8 flex items-center justify-center rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white transition-all" title="清除点赞">
-                  <i class="fa-solid fa-heart-crack text-xs"></i>
-                </button>
                 <button v-if="item.status !== 'approved'" @click="$emit('update', item.id, 'approved')" 
                   class="w-8 h-8 flex items-center justify-center rounded-lg bg-green-50 text-green-600 hover:bg-green-600 hover:text-white transition-all">
                   <i class="fa-solid fa-check text-xs"></i>
@@ -112,6 +108,10 @@
                 <button v-if="item.status === 'approved'" @click="$emit('update', item.id, 'pending')" 
                   class="w-8 h-8 flex items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white transition-all">
                   <i class="fa-solid fa-ban text-xs"></i>
+                </button>
+                <button v-if="(item.likeCount ?? 0) > 0" @click="$emit('clearLikes', item.id)"
+                  class="w-8 h-8 flex items-center justify-center rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white transition-all" title="清除点赞">
+                  <i class="fa-solid fa-heart-crack text-xs"></i>
                 </button>
                 <button 
                   @click="$emit('update', item.id, 'deleted')" 
