@@ -18,11 +18,9 @@ export const serveImage = async (c: Context<{ Bindings: Bindings }>) => {
 
     const bytes = Buffer.from(parsed.data, 'base64')
 
-    return new Response(bytes, {
-      headers: {
-        'Content-Type': parsed.mime,
-        'Cache-Control': 'public, max-age=86400',
-      },
+    return c.body(bytes, 200, {
+      'Content-Type': parsed.mime,
+      'Cache-Control': 'public, max-age=86400',
     })
   } catch (err: any) {
     console.error('Serve image error:', err?.message || err)

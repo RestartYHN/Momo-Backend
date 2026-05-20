@@ -29,6 +29,7 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 // 全局跨域（从数据库读取允许的来源）
 app.use('*', async (c, next) => {
+  if (c.req.path.startsWith('/api/img/')) return next()
   const allowOriginStr = await getSetting(c.env, "allow_origin") || '*'
   const corsMiddleware = customCors(allowOriginStr)
   return corsMiddleware(c, next)
