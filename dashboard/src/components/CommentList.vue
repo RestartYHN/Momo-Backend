@@ -43,10 +43,8 @@
               <i class="fa-solid fa-ban text-xs"></i>
             </button>
             <button 
-              @click.stop="$emit('update', item.id, 'deleted')" 
-              :class="item.status === 'deleted' ? 'opacity-30 cursor-not-allowed bg-gray-100 text-gray-400' : 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white'"
-              class="w-8 h-8 flex items-center justify-center rounded-lg transition-all flex-shrink-0"
-              :disabled="item.status === 'deleted'">
+              @click.stop="$emit('delete', item.id)" 
+              class="w-8 h-8 flex items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all flex-shrink-0">
               <i class="fa-solid fa-trash-can text-xs"></i>
             </button>
           </div>
@@ -114,10 +112,8 @@
                   <i class="fa-solid fa-heart-crack text-xs"></i>
                 </button>
                 <button 
-                  @click="$emit('update', item.id, 'deleted')" 
-                  :class="item.status === 'deleted' ? 'opacity-30 cursor-not-allowed bg-gray-100 text-gray-400' : 'bg-red-50 text-red-600 hover:bg-red-600 hover:text-white'"
-                  class="w-8 h-8 flex items-center justify-center rounded-lg transition-all"
-                  :disabled="item.status === 'deleted'">
+                  @click="$emit('delete', item.id)" 
+                  class="w-8 h-8 flex items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all">
                   <i class="fa-solid fa-trash-can text-xs"></i>
                 </button>
               </div>
@@ -159,7 +155,7 @@ import { ref } from 'vue'
 import CommentDetailModal from '../components/CommentDetailModal.vue'
 
 defineProps(['data', 'pagination']);
-defineEmits(['update', 'page-change', 'clearLikes', 'pin']);
+defineEmits(['update', 'page-change', 'clearLikes', 'pin', 'delete']);
 
 const showModal = ref(false)
 const selectedComment = ref({})

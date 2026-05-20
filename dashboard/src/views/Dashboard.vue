@@ -28,6 +28,7 @@
         @update="updateStatus"
         @clear-likes="clearLikes"
         @pin="pinComment"
+        @delete="deleteComment"
       />
     </template>
   </AdminLayout>
@@ -100,6 +101,17 @@ const clearLikes = async (id) => {
     fetchComments(pagination.value.page);
   } catch (error) {
     toast.error('清除失败');
+  }
+};
+
+const deleteComment = async (id) => {
+  if (!confirm('确定要永久删除这条评论？')) return;
+  try {
+    await request.delete(`/admin/comments/${id}`);
+    toast.success('已删除');
+    fetchComments(pagination.value.page);
+  } catch (error) {
+    toast.error('删除失败');
   }
 };
 
