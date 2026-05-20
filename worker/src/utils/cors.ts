@@ -9,12 +9,8 @@ export const customCors = (allowOriginStr: string | undefined) => {
 
   return cors({
     origin: (origin) => {
-      if (!origin) {
-        return origin
-      }
-      if (allowAll || allowedOrigins.includes(origin)) {
-        return origin
-      }
+      if (!origin) return '*'
+      if (allowAll || allowedOrigins.includes(origin)) return origin
     },
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
