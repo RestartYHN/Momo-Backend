@@ -39,7 +39,7 @@ export const postComment = async (c: Context<{ Bindings: Bindings }>) => {
 
   if (lastComment) {
     const lastTime = new Date(lastComment.pub_date).getTime();
-    if (Date.now() - lastTime < 60 * 1000) { // 10秒限流示例
+    if (Date.now() - lastTime < 10 * 1000) {
       return c.json({ message: "Time limit exceeded. Please wait." }, 429);
     }
   }
