@@ -26,16 +26,13 @@ export const uploadImage = async (c: Context<{ Bindings: Bindings }>) => {
     }
 
     const arrayBuffer = await file.arrayBuffer()
-    const bytes = new Uint8Array(arrayBuffer)
-    const base64 = Buffer.from(bytes).toString('base64')
-
     const imgId = generateId()
     const mimeType = file.type
 
     await c.env.MOMO_AUTH_KV.put(
       `img:${imgId}`,
-      JSON.stringify({ data: base64, mime: mimeType, name: file.name }),
-      { expirationTtl: 60 * 60 * 24 * 365 }
+      arrayBuffer,
+      { expirationTtl: 60 * 60 * 24 * 365, metadata: { mime: mimeType, name: file.name } }
     )
 
     return c.json({ success: true, url: `/api/img/${imgId}?v=${Date.now()}` })
