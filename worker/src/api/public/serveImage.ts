@@ -15,11 +15,7 @@ export const serveImage = async (c: Context<{ Bindings: Bindings }>) => {
       return new Response('Invalid image data', { status: 500 })
     }
 
-    const binaryStr = atob(parsed.data)
-    const bytes = new Uint8Array(binaryStr.length)
-    for (let i = 0; i < binaryStr.length; i++) {
-      bytes[i] = binaryStr.charCodeAt(i)
-    }
+    const bytes = Buffer.from(parsed.data, 'base64')
 
     return new Response(bytes, {
       headers: {

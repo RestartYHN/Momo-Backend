@@ -27,12 +27,7 @@ export const uploadImage = async (c: Context<{ Bindings: Bindings }>) => {
 
     const arrayBuffer = await file.arrayBuffer()
     const bytes = new Uint8Array(arrayBuffer)
-    let binary = '';
-    const CHUNK = 8192;
-    for (let i = 0; i < bytes.length; i += CHUNK) {
-      binary += String.fromCharCode(...bytes.slice(i, i + CHUNK));
-    }
-    const base64 = btoa(binary)
+    const base64 = Buffer.from(bytes).toString('base64')
 
     const imgId = generateId()
     const mimeType = file.type
