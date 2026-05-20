@@ -1,7 +1,7 @@
 import { Context } from 'hono'
 import { Bindings } from '../../bindings'
 
-const MAX_SIZE = 5 * 1024 * 1024
+const MAX_SIZE = 10 * 1024 * 1024
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
 
 export const uploadImage = async (c: Context<{ Bindings: Bindings }>) => {
