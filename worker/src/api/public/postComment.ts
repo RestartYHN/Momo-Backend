@@ -126,12 +126,13 @@ export const postComment = async (c: Context<{ Bindings: Bindings }>) => {
         const msg = data.parent_id
           ? `💬 ${author} 回复了《${postTitle}》\n${preview}`
           : `📝 ${author} 评论了《${postTitle}》\n${preview}`;
-        await fetch('http://101.34.206.170:18888/send', {
+        const res = await fetch('http://101.34.206.170:18888/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_id: 478929164, message: msg })
         });
-      } catch { /* QQ通知失败不阻塞 */ }
+        console.log('[QQ通知]', res.status, await res.text());
+      } catch (e) { console.error('[QQ通知失败]', e); }
     })());
 
     return c.json({ message: "Comment submitted" });
