@@ -126,7 +126,7 @@ export const postComment = async (c: Context<{ Bindings: Bindings }>) => {
         const msg = data.parent_id
           ? `💬 ${author} 回复了《${postTitle}》\n${preview}`
           : `📝 ${author} 评论了《${postTitle}》\n${preview}`;
-        const res = await fetch('http://101.34.206.170:18888/send', {
+        const res = await fetch('http://bot.restartyhn.top:18888/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_id: 478929164, message: msg })
