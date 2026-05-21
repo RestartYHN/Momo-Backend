@@ -10,10 +10,10 @@ export const pinComment = async (c: Context<{ Bindings: Bindings }>) => {
     const row = await c.env.MOMO_DB.prepare('SELECT pinned FROM Comment WHERE id = ?').bind(id).first<{ pinned: number }>()
     if (!row) return c.json({ message: 'Comment not found' }, 404)
 
-    const newPinned = row.pinned ? 0 : 1
+    const newPinned = row.pinned ? 0 : Date.now()
     await c.env.MOMO_DB.prepare('UPDATE Comment SET pinned = ? WHERE id = ?').bind(newPinned, id).run()
 
-    return c.json({ code: 200, message: 'OK', data: { pinned: newPinned === 1 } })
+    return c.json({ code: 200, message: 'OK', data: { pinned: newPinned !== 0 } })
   } catch (e: any) {
     return c.json({ message: e.message }, 500)
   }
