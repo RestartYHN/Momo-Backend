@@ -119,6 +119,21 @@ export const postComment = async (c: Context<{ Bindings: Bindings }>) => {
       console.log("No SMTP configuration found. Skipping email notification.");
     }
 
+    // QQ 通知（异步）
+    c.executionCtx.waitUntil((async () => {
+      try {
+        const preview = content.slice(0, 80) + (content.length > 80 ? '...' : '');
+        const msg = data.parent_id
+          ? `💬 ${author} 回复了《${postTitle}》\n${preview}`
+          : `📝 ${author} 评论了《${postTitle}》\n${preview}`;
+        await fetch('http://101.34.206.170:18888/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: 478929164, message: msg })
+        });
+      } catch { /* QQ通知失败不阻塞 */ }
+    })());
+
     return c.json({ message: "Comment submitted" });
 
   } catch (e: any) {
