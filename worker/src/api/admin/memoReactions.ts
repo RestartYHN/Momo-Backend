@@ -7,7 +7,7 @@ export const listMemoReactions = async (c: Context<{ Bindings: Bindings }>) => {
   const offset = (page - 1) * limit
 
   const { results } = await c.env.MOMO_DB.prepare(
-    'SELECT memo_id, reaction_type, COUNT(*) as cnt, MAX(created_at) as last_at FROM MemoReaction GROUP BY memo_id, reaction_type ORDER BY memo_id DESC, cnt DESC LIMIT ? OFFSET ?'
+    'SELECT memo_id, reaction_type, COUNT(*) as cnt, MAX(datetime(created_at, "+8 hours")) as last_at FROM MemoReaction GROUP BY memo_id, reaction_type ORDER BY memo_id DESC, cnt DESC LIMIT ? OFFSET ?'
   ).bind(limit, offset).all()
 
   const total = await c.env.MOMO_DB.prepare(
