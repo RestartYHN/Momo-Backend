@@ -53,6 +53,12 @@ const routes = [
     name: 'DataManagement',
     component: () => import('../views/DataManagement.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/memo-reactions',
+    name: 'MemoReactions',
+    component: () => import('../views/MemoReactions.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

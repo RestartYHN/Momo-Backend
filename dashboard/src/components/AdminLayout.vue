@@ -34,6 +34,12 @@
           <i class="fa-solid fa-table-list w-5 mr-3"></i>
           <span class="font-medium">评论管理</span>
         </router-link>
+        <router-link to="/memo-reactions" @click="closeMobileMenu"
+          :class="['flex items-center px-3 py-2.5 rounded-lg group transition-colors',
+            isActive('/memo-reactions') ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-100']">
+          <i class="fa-solid fa-face-smile w-5 mr-3"></i>
+          <span class="font-medium">Memo 反应</span>
+        </router-link>
         <router-link to="/users" @click="closeMobileMenu"
           :class="['flex items-center px-3 py-2.5 rounded-lg group transition-colors',
             isActive('/users') ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-100']">
@@ -119,6 +125,7 @@ const pageTitle = computed(() => {
   const map = {
     '/': '数据统计',
     '/comments': '评论列表',
+    '/memo-reactions': 'Memo 反应',
     '/users': '用户列表',
     '/user-comments': '用户评论',
     '/settings': '系统设置',

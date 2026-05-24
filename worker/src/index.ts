@@ -27,6 +27,7 @@ import { exportSettings, exportComments } from './api/admin/dataExport'
 import { importComments, importSettings } from './api/admin/dataImport'
 import { pinComment } from './api/admin/pinComment'
 import { deleteComment } from './api/admin/deleteComment'
+import { listMemoReactions, deleteMemoReaction } from './api/admin/memoReactions'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -69,5 +70,7 @@ app.post('/admin/data/import/comments', importComments);
 app.post('/admin/data/import/settings', importSettings);
 app.put('/admin/comments/:id/pin', pinComment);
 app.delete('/admin/comments/:id', deleteComment);
+app.get('/admin/memo-reactions', listMemoReactions);
+app.delete('/admin/memo-reactions', deleteMemoReaction);
 
 export default app
