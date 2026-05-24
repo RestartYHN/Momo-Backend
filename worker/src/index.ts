@@ -12,6 +12,8 @@ import { reactComment } from './api/public/reactComment'
 import { unreactComment } from './api/public/unreactComment'
 import { uploadImage } from './api/public/uploadImage'
 import { serveImage } from './api/public/serveImage'
+import { getMemoReactions } from './api/public/memoReactions'
+import { reactMemo, unreactMemo } from './api/public/memoReact'
 import { adminLogin } from './api/admin/login'
 import { getSettings, updateSettings, testEmail } from './api/admin/settings'
 import { changePassword } from './api/admin/password'
@@ -43,6 +45,9 @@ app.post('/api/comments/:id/like', likeComment)
 app.post('/api/comments/:id/unlike', unlikeComment)
 app.post('/api/comments/:id/react', reactComment)
 app.delete('/api/comments/:id/react', unreactComment)
+app.get('/api/memos/:id/reactions', getMemoReactions)
+app.post('/api/memos/:id/react', reactMemo)
+app.delete('/api/memos/:id/react', unreactMemo)
 app.post('/api/upload', uploadImage)
 app.get('/api/img/:id', serveImage)
 
