@@ -46,7 +46,7 @@
                 </td>
                 <td class="px-6 py-3 text-center">
                   <div class="flex items-center justify-center gap-1">
-                    <button @click="saveEdit(r.memo_id, r.reaction_type)"
+                    <button @click="saveEdit(r.memo_id, r.reaction_type, r)"
                       class="w-7 h-7 flex items-center justify-center rounded bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all text-xs" title="保存">✓</button>
                     <button @click="del(r.memo_id, r.reaction_type)"
                       class="w-7 h-7 flex items-center justify-center rounded bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all text-xs" title="删除">✕</button>
@@ -97,12 +97,13 @@ const fetchData = async () => {
   finally { loading.value = false }
 }
 
-const saveEdit = async (memo, type) => {
+const saveEdit = async (memo, type, row) => {
   const key = memo + type
-  const v = edits[key]
-  if (v == null) return
+  const raw = edits[key]
+  if (raw == null) return
+  const total = (row.user_cnt || 0) + raw
   try {
-    await request.put('/admin/memo-reactions', { memo, type, count: v })
+    await request.put('/admin/memo-reactions', { memo, type, count: total })
     edits[key] = undefined
     toast.success('已更新')
     fetchData()
