@@ -33,9 +33,9 @@ export const deleteMemoReaction = async (c: Context<{ Bindings: Bindings }>) => 
 }
 
 export const updateMemoReaction = async (c: Context<{ Bindings: Bindings }>) => {
-  const mid = c.req.query('memo')
-  const rt = c.req.query('type')
   const body = await c.req.json().catch(() => null)
+  const mid = body?.memo
+  const rt = body?.type
   const target = body?.count
   if (!mid || !rt || target == null) return c.json({ message: 'Invalid' }, 400)
 

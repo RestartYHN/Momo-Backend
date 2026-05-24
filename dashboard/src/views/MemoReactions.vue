@@ -20,6 +20,7 @@
                 <th class="px-6 py-3 text-xs font-semibold uppercase text-gray-500 w-20 text-center">总次数</th>
                 <th class="px-6 py-3 text-xs font-semibold uppercase text-gray-500 w-20 text-center">用户</th>
                 <th class="px-6 py-3 text-xs font-semibold uppercase text-gray-500 w-20 text-center">管理</th>
+                <th class="px-6 py-3 text-xs font-semibold uppercase text-gray-500">最后更新</th>
                 <th class="px-6 py-3 text-xs font-semibold uppercase text-gray-500 w-20 text-center">操作</th>
               </tr>
             </thead>
@@ -39,6 +40,9 @@
                   <input v-model.number="edits[r.memo_id+r.reaction_type]" type="number" min="0"
                     class="w-14 text-center text-xs border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:border-blue-400"
                     :placeholder="r.admin_cnt" />
+                </td>
+                <td class="px-6 py-3">
+                  <span class="text-xs text-gray-400">{{ r.last_at }}</span>
                 </td>
                 <td class="px-6 py-3 text-center">
                   <div class="flex items-center justify-center gap-1">
