@@ -11,6 +11,10 @@ export const statsOverview = async (c: Context<{ Bindings: Bindings }>) => {
     "SELECT COUNT(*) as count FROM Comment WHERE status != 'deleted'"
   ).first<{ count: number }>();
 
+  const qaCount = await c.env.MOMO_DB.prepare(
+    "SELECT COUNT(*) as count FROM Comment WHERE post_slug = 'about-qa' AND status != 'deleted'"
+  ).first<{ count: number }>();
+
   const totalUsers = await c.env.MOMO_DB.prepare(
     "SELECT COUNT(*) as count FROM (SELECT DISTINCT author, email FROM Comment WHERE status != 'deleted')"
   ).first<{ count: number }>();
@@ -97,6 +101,7 @@ export const statsOverview = async (c: Context<{ Bindings: Bindings }>) => {
     message: "Stats fetched successfully",
     data: {
       totalComments: totalComments?.count || 0,
+      qaCount: qaCount?.count || 0,
       totalUsers: totalUsers?.count || 0,
       totalPosts: totalPosts?.count || 0,
       statusDistribution,

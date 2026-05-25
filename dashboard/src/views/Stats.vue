@@ -6,7 +6,7 @@
 
     <template v-else>
       <!-- Stat Cards -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <div @click="goComments()"
           class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 cursor-pointer transition-all hover:shadow-md hover:border-blue-200">
           <div class="flex items-center justify-between">
@@ -16,6 +16,18 @@
             </div>
             <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
               <i class="fa-solid fa-comments text-blue-500"></i>
+            </div>
+          </div>
+        </div>
+        <div @click="goQA()"
+          class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 cursor-pointer transition-all hover:shadow-md hover:border-orange-200">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-xs font-medium uppercase tracking-wider text-gray-500">Q&A</p>
+              <p class="text-2xl font-bold mt-1 text-gray-800">{{ stats.qaCount }}</p>
+            </div>
+            <div class="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center">
+              <i class="fa-solid fa-circle-question text-orange-500"></i>
             </div>
           </div>
         </div>
@@ -270,9 +282,9 @@ const formatDate = (str) => {
 };
 
 const goComments = (status) => {
-  router.push(status ? `/comments?status=${status}` : '/comments');
-};
-
+  router.push(status ? `/comments?status=${status}` : '/comments')
+}
+const goQA = () => { router.push('/qa') }
 const goUsers = () => {
   router.push('/users');
 };

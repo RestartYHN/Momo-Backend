@@ -5,6 +5,7 @@ export const listComments = async (c: Context<{ Bindings: Bindings }>) => {
   const page = parseInt(c.req.query('page') || '1');
   const status = c.req.query('status') || '';
   const slug = c.req.query('post_slug') || '';
+  const exclude = c.req.query('exclude_slug') || '';
   const limit = 10;
   const offset = (page - 1) * limit;
 
@@ -14,6 +15,7 @@ export const listComments = async (c: Context<{ Bindings: Bindings }>) => {
 
   if (status) { countSql += " AND status = ?"; listSql += " AND status = ?"; where.push(status); }
   if (slug) { countSql += " AND post_slug = ?"; listSql += " AND post_slug = ?"; where.push(slug); }
+  if (exclude) { countSql += " AND post_slug != ?"; listSql += " AND post_slug != ?"; where.push(exclude); }
   listSql += " ORDER BY pub_date DESC LIMIT ? OFFSET ?";
 
   const totalCount = await c.env.MOMO_DB.prepare(countSql).bind(...where).first<{ count: number }>();

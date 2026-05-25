@@ -60,7 +60,7 @@ const statusTabs = [
 const fetchComments = async (page = 1) => {
   loading.value = true;
   try {
-    const params = { page };
+    const params = { page, exclude_slug: 'about-qa' };
     if (currentStatus.value) {
       params.status = currentStatus.value;
     }
