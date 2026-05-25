@@ -86,9 +86,7 @@ const fetchData = async () => {
   loading.value = true
   try {
     const res = await request.get('/admin/comments/list', { params: { page: page.value, post_slug: 'about-qa' } })
-    questions.value = (res.data.comments || []).map(c => ({
-      ...c, replyCount: (c.replies || []).length
-    }))
+    questions.value = res.data.comments || []
     pagination.value = res.data.pagination
   } catch { toast.error('加载失败') }
   finally { loading.value = false }
