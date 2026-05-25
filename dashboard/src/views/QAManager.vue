@@ -7,7 +7,31 @@
     <template v-else>
       <div class="flex items-center justify-between mb-4">
         <h4 class="text-lg font-bold text-gray-800">Q&A 管理</h4>
-        <span class="text-xs text-gray-400">共 {{ pagination.totalPage }} 页</span>
+        <button @click="showForm = !showForm"
+          class="px-3 py-1 text-xs rounded-lg border transition-colors"
+          :class="showForm ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'">
+          {{ showForm ? '收起' : '新增' }}
+        </button>
+      </div>
+
+      <div v-if="showForm" class="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <input v-model="qaForm.author" placeholder="提问者" class="px-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:border-blue-400" />
+          <input v-model="qaForm.email" placeholder="邮箱（可选）" class="px-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:border-blue-400" />
+        </div>
+        <textarea v-model="qaForm.question" placeholder="问题内容" rows="3"
+          class="w-full px-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:border-blue-400 mb-3"></textarea>
+        <div class="flex gap-2">
+          <button @click="postQA('q')"
+            class="px-4 py-2 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">发布问题</button>
+          <span class="text-xs text-gray-400 self-center">或</span>
+          <select v-model="qaForm.parentId" class="px-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:border-blue-400">
+            <option :value="null">选择要回答的问题...</option>
+            <option v-for="q in questions" :key="q.id" :value="q.id">{{ q.contentText?.slice(0, 60) }}...</option>
+          </select>
+          <button @click="postQA('a')"
+            class="px-4 py-2 text-xs rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors">发布回答</button>
+        </div>
       </div>
 
       <div class="rounded-lg shadow-sm border overflow-hidden bg-white border-gray-200">
@@ -69,7 +93,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import request from '../utils/request'
 import toast from '../utils/toast'
@@ -81,6 +105,8 @@ const questions = ref([])
 const page = ref(1)
 const pagination = ref({ page: 1, totalPage: 1 })
 const apiUrl = ref(localStorage.getItem('apiUrl') || window.location.origin)
+const showForm = ref(false)
+const qaForm = reactive({ author: '', email: '', question: '', parentId: null })
 
 const fetchData = async () => {
   loading.value = true
@@ -90,6 +116,21 @@ const fetchData = async () => {
     pagination.value = res.data.pagination
   } catch { toast.error('加载失败') }
   finally { loading.value = false }
+}
+
+const postQA = async (type) => {
+  if (!qaForm.question?.trim()) return toast.error('请输入内容')
+  try {
+    await request.post('/api/comments', {
+      post_slug: 'about-qa', author: qaForm.author || 'Restart',
+      email: qaForm.email || 'admin@restartyhn.top', content: qaForm.question,
+      parent_id: type === 'a' ? qaForm.parentId : null,
+      post_url: 'https://restartyhn.top/about/', post_title: 'Q&A'
+    })
+    toast.success(type === 'q' ? '问题已发布' : '回答已发布')
+    qaForm.question = ''; qaForm.parentId = null
+    fetchData()
+  } catch { toast.error('发布失败') }
 }
 
 const togglePin = async (id) => {
