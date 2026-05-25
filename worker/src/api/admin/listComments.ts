@@ -4,20 +4,18 @@ import { Bindings } from '../../bindings';
 export const listComments = async (c: Context<{ Bindings: Bindings }>) => {
   const page = parseInt(c.req.query('page') || '1');
   const status = c.req.query('status') || '';
+  const slug = c.req.query('post_slug') || '';
   const limit = 10;
   const offset = (page - 1) * limit;
 
-  let countSql, listSql, bindings: any[];
+  let countSql = "SELECT COUNT(*) as count FROM Comment WHERE 1=1";
+  let listSql = "SELECT * FROM Comment WHERE 1=1";
+  const bindings: any[] = [];
 
-  if (status) {
-    countSql = "SELECT COUNT(*) as count FROM Comment WHERE status = ?";
-    listSql = "SELECT * FROM Comment WHERE status = ? ORDER BY pub_date DESC LIMIT ? OFFSET ?";
-    bindings = [status, limit, offset];
-  } else {
-    countSql = "SELECT COUNT(*) as count FROM Comment";
-    listSql = "SELECT * FROM Comment ORDER BY pub_date DESC LIMIT ? OFFSET ?";
-    bindings = [limit, offset];
-  }
+  if (status) { countSql += " AND status = ?"; listSql += " AND status = ?"; bindings.push(status); }
+  if (slug) { countSql += " AND post_slug = ?"; listSql += " AND post_slug = ?"; bindings.push(slug); }
+  listSql += " ORDER BY pub_date DESC LIMIT ? OFFSET ?";
+  bindings.push(limit, offset);
 
   const totalCount = await c.env.MOMO_DB.prepare(countSql).bind(
     ...(status ? [status] : [])

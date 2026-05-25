@@ -59,6 +59,12 @@ const routes = [
     name: 'MemoReactions',
     component: () => import('../views/MemoReactions.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/qa',
+    name: 'QAManager',
+    component: () => import('../views/QAManager.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 
