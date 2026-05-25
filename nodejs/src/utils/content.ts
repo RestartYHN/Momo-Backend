@@ -136,6 +136,7 @@ const getResponseCommentAdmin = async (comments: Comment[] | null, page: number)
     browser: comment.browser || '',
     contentText: comment.content_text,
     contentHtml: comment.content_html,
+    parentId: comment.parent_id,
     status: comment.status
   })));
 

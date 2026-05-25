@@ -81,7 +81,7 @@ export const postComment = async (c: Context<{ Bindings: Bindings }>) => {
     if (!success) throw new Error("Database insert failed");
 
     // 5. 发送邮件通知 (后台异步执行，不阻塞用户响应)
-    if (await isEmailEnabled(c.env)) {
+    if (await isEmailEnabled(c.env) && data.post_slug !== 'about-qa') {
       console.log("Sending email notification...");
       c.executionCtx.waitUntil((async () => {
         try {

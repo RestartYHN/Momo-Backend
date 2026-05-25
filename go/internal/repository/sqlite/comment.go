@@ -120,24 +120,33 @@ func (r *commentRepo) Delete(ctx context.Context, id int64) error {
 	return err
 }
 
-func (r *commentRepo) List(ctx context.Context, offset, limit int, status string) ([]*model.Comment, int64, error) {
+func (r *commentRepo) List(ctx context.Context, offset, limit int, status, postSlug string) ([]*model.Comment, int64, error) {
 	var comments []*model.Comment
 	var total int64
 
-	var err error
+	queryCount := "SELECT COUNT(*) FROM Comment WHERE 1=1"
+	querySelect := "SELECT * FROM Comment WHERE 1=1"
+	args := []interface{}{}
+
 	if status != "" {
-		err = r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM Comment WHERE status = ?", status)
-		if err != nil {
-			return nil, 0, err
-		}
-		err = r.db.SelectContext(ctx, &comments, "SELECT * FROM Comment WHERE status = ? ORDER BY pub_date DESC LIMIT ? OFFSET ?", status, limit, offset)
-	} else {
-		err = r.db.GetContext(ctx, &total, "SELECT COUNT(*) FROM Comment")
-		if err != nil {
-			return nil, 0, err
-		}
-		err = r.db.SelectContext(ctx, &comments, "SELECT * FROM Comment ORDER BY pub_date DESC LIMIT ? OFFSET ?", limit, offset)
+		queryCount += " AND status = ?"
+		querySelect += " AND status = ?"
+		args = append(args, status)
 	}
+	if postSlug != "" {
+		queryCount += " AND post_slug = ?"
+		querySelect += " AND post_slug = ?"
+		args = append(args, postSlug)
+	}
+
+	err := r.db.GetContext(ctx, &total, queryCount, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	querySelect += " ORDER BY pub_date DESC LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
+	err = r.db.SelectContext(ctx, &comments, querySelect, args...)
 
 	return comments, total, err
 }

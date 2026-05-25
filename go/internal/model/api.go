@@ -43,6 +43,7 @@ type AdminCommentResponse struct {
 	Browser     *string `json:"browser"`
 	ContentText string  `json:"contentText"`
 	ContentHtml string  `json:"contentHtml"`
+	ParentID    *int64  `json:"parentId,omitempty"`
 	Status      string  `json:"status"`
 }
 

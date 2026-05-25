@@ -277,11 +277,12 @@ func (h *CommentHandler) ListAllComments(c *gin.Context) {
 	}
 
 	status := c.DefaultQuery("status", "")
+	postSlug := c.DefaultQuery("post_slug", "")
 	limit := 10
 	offset := (page - 1) * limit
 
 	// 2. 从 Repo 调用获取数据
-	comments, total, err := h.Repo.List(c.Request.Context(), offset, limit, status)
+	comments, total, err := h.Repo.List(c.Request.Context(), offset, limit, status, postSlug)
 	if err != nil {
 		log.Printf("[ERROR] Failed to list comments: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -312,6 +313,7 @@ func (h *CommentHandler) ListAllComments(c *gin.Context) {
 			Browser:     comm.Browser,
 			ContentText: comm.ContentText,
 			ContentHtml: comm.ContentHTML,
+			ParentID:    comm.ParentID,
 			Status:      comm.Status,
 		})
 	}
@@ -508,6 +510,7 @@ func (h *CommentHandler) ExportComments(c *gin.Context) {
 			Browser:     comm.Browser,
 			ContentText: comm.ContentText,
 			ContentHtml: comm.ContentHTML,
+			ParentID:    comm.ParentID,
 			Status:      comm.Status,
 		})
 	}

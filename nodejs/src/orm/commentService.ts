@@ -13,12 +13,15 @@ class CommentService {
     }
     /*
     * 获取所有评论，按照最新发布时间排序
-    * 支持按状态筛选
+    * 支持按状态筛选和 postSlug 筛选
     */
-    async getAllComments(status?: string): Promise<Comment[]> {
+    async getAllComments(status?: string, postSlug?: string): Promise<Comment[]> {
         const where: any = {};
         if (status) {
             where.status = status;
+        }
+        if (postSlug) {
+            where.post_slug = postSlug;
         }
         return await CommentsModel.findMany({
             where,

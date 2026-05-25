@@ -9,6 +9,7 @@ export default async (ctx: koa.Context, next: koa.Next): Promise<void> => {
 
   const page = getQueryNumber(ctx.query.page as string, 1);
   const status = getQueryString(ctx.query.status as string, "");
+  const postSlug = getQueryString(ctx.query.post_slug as string, "");
   // const key = getQueryString(ctx.query.key as string, "");
   const authHeader = ctx.get("Authorization");
   const key = extractToken(authHeader);
@@ -22,8 +23,8 @@ export default async (ctx: koa.Context, next: koa.Next): Promise<void> => {
     return;
   }
 
-  // 获取所有评论（可按状态筛选）
-  const comments: Comment[] = await CommentService.getAllComments(status || undefined);
+  // 获取所有评论（可按状态筛选和 slug 筛选）
+  const comments: Comment[] = await CommentService.getAllComments(status || undefined, postSlug || undefined);
   
   const groupedComments = await getResponseCommentAdmin(comments, page);
 

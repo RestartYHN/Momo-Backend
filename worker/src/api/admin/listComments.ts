@@ -41,6 +41,7 @@ export const listComments = async (c: Context<{ Bindings: Bindings }>) => {
     ipAddress: row.ip_address,
     contentText: row.content_text,
     contentHtml: row.content_html,
+    parentId: row.parent_id,
     likeCount: row.like_count,
     status: row.status,
     pinned: row.pinned || 0,

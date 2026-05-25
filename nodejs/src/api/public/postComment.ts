@@ -45,9 +45,9 @@ export default async (ctx: koa.Context, next: koa.Next): Promise<void> => {
       status: "approved"
     }
     const comment = await CommentService.createComment(commentData);
-    // 发送邮件通知（不影响评论结果）
+    // 发送邮件通知（不影响评论结果）的判断
     try {
-      if(await isEmailServiceAvailable()) {
+      if(await isEmailServiceAvailable() && data.post_slug !== 'about-qa') {
         if(data.parent_id) {
           LogService.info("Reply comment", { Name: comment.author, Email: comment.email})
           const parentComment = await CommentService.getCommentById(data.parent_id);

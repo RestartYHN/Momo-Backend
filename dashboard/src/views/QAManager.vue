@@ -15,11 +15,7 @@
       </div>
 
       <div v-if="showForm" class="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
-        <div class="grid grid-cols-2 gap-3 mb-3">
-          <input v-model="qaForm.author" placeholder="提问者" class="px-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:border-blue-400" />
-          <input v-model="qaForm.email" placeholder="邮箱（可选）" class="px-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:border-blue-400" />
-        </div>
-        <textarea v-model="qaForm.question" placeholder="问题内容" rows="3"
+        <textarea v-model="qaForm.question" placeholder="问题/回答 内容" rows="3"
           class="w-full px-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:border-blue-400 mb-3"></textarea>
         <div class="flex gap-2">
           <button @click="postQA('q')"
@@ -27,7 +23,7 @@
           <span class="text-xs text-gray-400 self-center">或</span>
           <select v-model="qaForm.parentId" class="px-3 py-2 text-sm border border-gray-200 rounded focus:outline-none focus:border-blue-400">
             <option :value="null">选择要回答的问题...</option>
-            <option v-for="q in questions" :key="q.id" :value="q.id">{{ q.contentText?.slice(0, 60) }}...</option>
+            <option v-for="q in questions.filter(x => !x.parentId)" :key="q.id" :value="q.id">{{ q.contentText?.slice(0, 60) }}...</option>
           </select>
           <button @click="postQA('a')"
             class="px-4 py-2 text-xs rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors">发布回答</button>
