@@ -5,16 +5,17 @@ import { mergeCookies, neteaseGet } from "./neteaseClient";
 const trackCache = new Map<string, { expiresAt: number; data: unknown }>();
 const TRACK_TTL_MS = 10 * 60 * 1000;
 
-async function fetchTrackById(id: string) {
-  const cached = trackCache.get(id);
+async function fetchTrackById(id: string, cookie?: string) {
+  const cacheKey = cookie ? `${id}:vip` : id;
+  const cached = trackCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.data;
   }
 
   const [detailResp, urlResp, lrcResp] = await Promise.all([
-    neteaseGet("/song/detail", { ids: id, timestamp: Date.now() }),
-    neteaseGet("/song/url/v1", { id, level: "standard", timestamp: Date.now() }),
-    neteaseGet("/lyric", { id, timestamp: Date.now() }),
+    neteaseGet("/song/detail", { ids: id, timestamp: Date.now() }, cookie, "pc"),
+    neteaseGet("/song/url/v1", { id, level: "standard", timestamp: Date.now() }, cookie, "pc"),
+    neteaseGet("/lyric", { id, timestamp: Date.now() }, cookie, "pc"),
   ]);
 
   const detailData = detailResp.data as any;
@@ -22,6 +23,9 @@ async function fetchTrackById(id: string) {
   const lrcData = lrcResp.data as any;
   const song = Array.isArray(detailData.songs) ? detailData.songs[0] : undefined;
   const urlItem = Array.isArray(urlData.data) ? urlData.data[0] : undefined;
+  const fee = Number(urlItem?.fee || 0);
+  const isPreviewOnly = urlItem?.freeTrialInfo != null;
+  const audioUrl = fee > 0 && isPreviewOnly ? "" : (urlItem?.url || "");
   const lyricText = typeof lrcData.lrc?.lyric === "string" ? lrcData.lrc.lyric : "";
   const translatedLyricText = typeof lrcData.tlyric?.lyric === "string" ? lrcData.tlyric.lyric : "";
 
@@ -30,12 +34,12 @@ async function fetchTrackById(id: string) {
     title: song?.name || `Song ${id}`,
     artist: Array.isArray(song?.ar) ? song.ar.map((item: any) => item?.name || "Unknown").join(", ") : "Unknown Artist",
     cover: song?.al?.picUrl || "",
-    audio: urlItem?.url || "",
+    audio: audioUrl,
     lyric: lyricText,
     tlyric: translatedLyricText,
   };
 
-  trackCache.set(id, {
+  trackCache.set(cacheKey, {
     expiresAt: Date.now() + TRACK_TTL_MS,
     data,
   });
@@ -372,7 +376,7 @@ export async function getPlaylistSongs(ctx: Context) {
 
     const playlistResp = await neteaseGet(
       "/playlist/track/all",
-      { id: playlistId, limit: 200, offset: 0, timestamp: Date.now() },
+      { id: playlistId, limit: 100000, offset: 0, timestamp: Date.now() },
       session.cookie,
       "pc",
     );
@@ -384,7 +388,7 @@ export async function getPlaylistSongs(ctx: Context) {
     const songs = songsRaw
       .map((s) => (s.id !== undefined ? String(s.id) : ""))
       .filter(Boolean)
-      .slice(0, 200);
+      .slice(0, 100000);
 
     ctx.body = {
       code: 200,
@@ -447,7 +451,7 @@ export async function getPublicPlaylistSongs(ctx: Context) {
 
     const playlistResp = await neteaseGet(
       "/playlist/track/all",
-      { id: playlistId, limit: 200, offset: 0, timestamp: Date.now() },
+      { id: playlistId, limit: 100000, offset: 0, timestamp: Date.now() },
       undefined,
       "pc",
     );
@@ -459,7 +463,7 @@ export async function getPublicPlaylistSongs(ctx: Context) {
     const songs = songsRaw
       .map((s) => (s.id !== undefined ? String(s.id) : ""))
       .filter(Boolean)
-      .slice(0, 200);
+      .slice(0, 100000);
 
     ctx.body = {
       code: 200,
@@ -532,7 +536,7 @@ export async function getCookiePlaylistSongs(ctx: Context) {
 
     const playlistResp = await neteaseGet(
       "/playlist/track/all",
-      { id: playlistId, limit: 200, offset: 0, timestamp: Date.now() },
+      { id: playlistId, limit: 100000, offset: 0, timestamp: Date.now() },
       cookie,
       "pc",
     );
@@ -544,7 +548,7 @@ export async function getCookiePlaylistSongs(ctx: Context) {
     const songs = songsRaw
       .map((s) => (s.id !== undefined ? String(s.id) : ""))
       .filter(Boolean)
-      .slice(0, 200);
+      .slice(0, 100000);
 
     ctx.body = {
       code: 200,
@@ -576,7 +580,8 @@ export async function getTrack(ctx: Context) {
       return;
     }
 
-    const track = await fetchTrackById(id);
+    const envCookie = String(process.env.NETEASE_MUSIC_COOKIE || "").trim();
+    const track = await fetchTrackById(id, envCookie || undefined);
     ctx.body = {
       code: 200,
       message: "Track retrieved",
@@ -589,5 +594,183 @@ export async function getTrack(ctx: Context) {
       message: "Failed to get track",
       error: (error as Error).message,
     };
+  }
+}
+
+export async function getUserRecord(ctx: Context) {
+  try {
+    const cookie = String(process.env.NETEASE_MUSIC_COOKIE || "").trim();
+    if (!cookie) {
+      ctx.status = 400;
+      ctx.body = { code: 400, message: "NETEASE_MUSIC_COOKIE is not configured" };
+      return;
+    }
+
+    const [accountResp, realtimeResp, recentResp] = await Promise.all([
+      neteaseGet("/user/account", { timestamp: Date.now() }, cookie, "pc"),
+      neteaseGet("/listen/data/realtime/report", { timestamp: Date.now() }, cookie, "pc"),
+      neteaseGet("/record/recent/song", { limit: "5", timestamp: Date.now() }, cookie, "pc"),
+    ]);
+
+    const uid = String((accountResp.data.profile || {}).userId || "");
+    const recordResp = await neteaseGet("/user/record", { uid, type: "1", timestamp: Date.now() }, cookie, "pc");
+
+    const rtData = (realtimeResp.data && realtimeResp.data.data) || {};
+    const block = rtData.listenTimeDistributionBlock || {};
+    const weekDurationMs = (Number(block.playDuration) || 0) * 60000;
+    const listeningDays = Number(block.listenDays) || 0;
+
+    const details = Array.isArray(block.durationDetails) ? block.durationDetails : [];
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const today = details.find((d: any) => d.period === todayStr);
+    const todayDurationMs = (Number(today?.duration) || 0) * 60000;
+    let todaySongs = 0;
+    try {
+      const todayResp = await neteaseGet("/listen/data/today/song", { timestamp: Date.now() }, cookie, "pc");
+      const tdData = (todayResp.data && todayResp.data.data) || todayResp.data || {};
+      const songList = Array.isArray(tdData.songDTOs) ? tdData.songDTOs : [];
+      todaySongs = songList.length;
+    } catch (e) {}
+
+    const requestType = String(ctx.query.type || "1");
+    let sourceData: any[] = [];
+    if (requestType === "0" && uid) {
+      const allResp = await neteaseGet("/user/record", { uid, type: "0", timestamp: Date.now() }, cookie, "pc");
+      sourceData = Array.isArray(allResp.data?.allData) ? allResp.data.allData : [];
+    } else {
+      sourceData = Array.isArray(recordResp.data?.weekData) ? recordResp.data.weekData : [];
+    }
+
+    const top = sourceData.slice(0, 100).map((item: any) => ({
+      id: item.song?.id ? String(item.song.id) : "",
+      title: item.song?.name || "Unknown",
+      artist: Array.isArray(item.song?.ar) ? item.song.ar.map((a: any) => a.name).join(", ") : "Unknown",
+      cover: item.song?.al?.picUrl || "",
+      playCount: Number(item.playCount) || 0,
+    }));
+
+    const recentData = (recentResp.data && recentResp.data.data) || {};
+    const recentList = Array.isArray(recentData.list) ? recentData.list : [];
+    const recent = recentList.slice(0, 5).map((item: any) => ({
+      id: item.data?.id ? String(item.data.id) : "",
+      title: item.data?.name || "Unknown",
+      artist: Array.isArray(item.data?.ar) ? item.data.ar.map((a: any) => a.name).join(", ") : "Unknown",
+      cover: item.data?.al?.picUrl || "",
+      playedAt: Number(item.playTime || item.data?.playTime) || 0,
+    }));
+
+    ctx.body = {
+      code: 200,
+      message: "User record retrieved",
+      data: {
+        top,
+        recent,
+        weekDurationMs,
+        listeningDays,
+        todaySongs,
+        todayDurationMs,
+      },
+    };
+  } catch (error) {
+    ctx.status = 500;
+    ctx.body = { code: 500, message: "Failed to get user record", error: (error as Error).message };
+  }
+}
+
+export async function getUserAlbums(ctx: Context) {
+  try {
+    const cookie = String(process.env.NETEASE_MUSIC_COOKIE || "").trim();
+    if (!cookie) {
+      ctx.status = 400;
+      ctx.body = { code: 400, message: "NETEASE_MUSIC_COOKIE is not configured" };
+      return;
+    }
+    const resp = await neteaseGet("/album/sublist", { limit: "100", timestamp: Date.now() }, cookie, "pc");
+    const data = resp.data || {};
+    const albums = Array.isArray(data.data) ? data.data : [];
+    const list = albums.map((a: any) => ({
+      id: String(a.id || ""),
+      name: a.name || "Unknown",
+      artist: a.artist?.name || "",
+      cover: a.picUrl || "",
+      size: Number(a.size) || 0,
+    }));
+    ctx.body = { code: 200, message: "Albums retrieved", data: list };
+  } catch (error) {
+    ctx.status = 500;
+    ctx.body = { code: 500, message: "Failed to get albums", error: (error as Error).message };
+  }
+}
+
+export async function getAlbum(ctx: Context) {
+  try {
+    const cookie = String(process.env.NETEASE_MUSIC_COOKIE || "").trim();
+    if (!cookie) {
+      ctx.status = 400;
+      ctx.body = { code: 400, message: "NETEASE_MUSIC_COOKIE is not configured" };
+      return;
+    }
+    const id = String(ctx.query.id || "").trim();
+    if (!id) {
+      ctx.status = 400;
+      ctx.body = { code: 400, message: "Missing id" };
+      return;
+    }
+    const resp = await neteaseGet("/album", { id, timestamp: Date.now() }, cookie, "pc");
+    const data = resp.data || {};
+    const album = data.album || {};
+    const songs = Array.isArray(data.songs) ? data.songs : [];
+    const tracks = songs.map((s: any) => ({
+      id: s.id ? String(s.id) : "",
+      title: s.name || "Unknown",
+      artist: Array.isArray(s.ar) ? s.ar.map((a: any) => a.name).join(", ") : "",
+      cover: album.picUrl || s.al?.picUrl || "",
+    }));
+    ctx.body = {
+      code: 200,
+      message: "Album retrieved",
+      data: {
+        name: album.name || "",
+        artist: album.artist?.name || (album.artists && album.artists[0]?.name) || "",
+        cover: album.picUrl || "",
+        size: Number(album.size) || songs.length,
+        publishTime: album.publishTime || null,
+        tracks,
+      },
+    };
+  } catch (error) {
+    ctx.status = 500;
+    ctx.body = { code: 500, message: "Failed to get album", error: (error as Error).message };
+  }
+}
+
+export async function searchSongs(ctx: Context) {
+  try {
+    const q = String(ctx.query.q || "").trim();
+    if (!q || q.length < 2) {
+      ctx.status = 400;
+      ctx.body = { code: 400, message: "Query too short" };
+      return;
+    }
+    const cookie = String(process.env.NETEASE_MUSIC_COOKIE || "").trim();
+    const resp = await neteaseGet("/cloudsearch", { keywords: q, type: "1", limit: "20", timestamp: Date.now() }, cookie || undefined, "pc");
+    const data = resp.data || {};
+    const result = data.result || {};
+    const songs = Array.isArray(result.songs) ? result.songs : [];
+    const list = songs.map((s: any) => {
+      let cover = s.al?.picUrl || "";
+      if (cover && cover.startsWith("http:")) cover = cover.replace("http:", "https:");
+      return {
+        id: s.id ? String(s.id) : "",
+        title: s.name || "Unknown",
+        artist: Array.isArray(s.ar) ? s.ar.map((a: any) => a.name).join(", ") : "Unknown",
+        cover,
+      };
+    });
+    ctx.body = { code: 200, message: "Search results", data: list };
+  } catch (error) {
+    ctx.status = 500;
+    ctx.body = { code: 500, message: "Search failed", error: (error as Error).message };
   }
 }
