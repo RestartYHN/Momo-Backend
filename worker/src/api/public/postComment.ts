@@ -2,8 +2,9 @@ import { Context } from 'hono';
 import { UAParser } from 'ua-parser-js';
 import { Bindings } from '../../bindings';
 import { sendCommentNotification, sendCommentReplyNotification } from '../../utils/email';
-import { isEmailEnabled } from '../../utils/settings';
+import { isEmailEnabled, getSetting } from '../../utils/settings';
 import { parseMarkdown } from '../../utils/markdown';
+import { verifyToken } from '../../utils/auth';
 
 // 检查内容，删除 XSS 攻击脚本
 export function checkContent(content: string): string {
@@ -22,6 +23,17 @@ export function checkContent(content: string): string {
         .replace(/(?:javascript|vbscript):\s*/gi, '')
         // Remove dangerous embedding tags
         .replace(/<\/?(?:iframe|object|embed|frame|meta|link|base|form|input)\b[^>]*>/gi, '');
+}
+
+async function checkEmailBlacklist(env: Bindings, email: string): Promise<boolean> {
+  const blacklistStr = await getSetting(env, "email_blacklist");
+  if (!blacklistStr) return false;
+  try {
+    const blacklist = JSON.parse(blacklistStr);
+    return Array.isArray(blacklist) && blacklist.includes(email);
+  } catch {
+    return false;
+  }
 }
 
 export const postComment = async (c: Context<{ Bindings: Bindings }>) => {
@@ -44,6 +56,11 @@ export const postComment = async (c: Context<{ Bindings: Bindings }>) => {
     }
   }
 
+  // 2.5 检查邮箱黑名单
+  if (data.email && await checkEmailBlacklist(c.env, data.email)) {
+    return c.json({ code: 403, message: "Your email has been blocked" }, 403);
+  }
+
   // 3. 准备数据 - 对所有用户输入进行 XSS 检查
   const content = checkContent(data.content);
   const author = checkContent(data.author);
@@ -53,7 +70,14 @@ export const postComment = async (c: Context<{ Bindings: Bindings }>) => {
   const uaParser = new UAParser(userAgent);
   const uaResult = uaParser.getResult();
 
-  // 4. 写入 D1 数据库
+  // 4. 确定审核状态
+  const isAdminRequest = await verifyToken(c);
+  let commentStatus = "approved";
+  if (data.post_slug === 'about-qa' && !isAdminRequest) {
+    commentStatus = "pending";
+  }
+
+  // 5. 写入 D1 数据库
   try {
     const { success } = await c.env.MOMO_DB.prepare(`
       INSERT INTO Comment (
@@ -75,12 +99,12 @@ export const postComment = async (c: Context<{ Bindings: Bindings }>) => {
       content,
       parseMarkdown(content),
       data.parent_id || null,
-      "approved" // 或者从环境变量读取默认状态
+      commentStatus
     ).run();
 
     if (!success) throw new Error("Database insert failed");
 
-    // 5. 发送邮件通知 (后台异步执行，不阻塞用户响应)
+    // 6. 发送邮件通知 (后台异步执行，不阻塞用户响应)
     if (await isEmailEnabled(c.env) && data.post_slug !== 'about-qa') {
       console.log("Sending email notification...");
       c.executionCtx.waitUntil((async () => {
@@ -134,6 +158,9 @@ export const postComment = async (c: Context<{ Bindings: Bindings }>) => {
       } catch { /* QQ通知失败不阻塞 */ }
     })());
 
+    if (commentStatus === 'pending') {
+      return c.json({ message: "Question submitted, pending review" });
+    }
     return c.json({ message: "Comment submitted" });
 
   } catch (e: any) {
