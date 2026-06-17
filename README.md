@@ -16,67 +16,100 @@
 <img src="https://img.shields.io/badge/Svelte-FF3E00?logo=svelte&logoColor=white" alt="Svelte">
 <img src="https://img.shields.io/badge/Vue-3.5+-4FC08D?logo=vue.js&logoColor=white" alt="Vue">
 </span>
-
 </div>
-
-<!-- ![License](https://img.shields.io/badge/license-MIT-blue) -->
 
 <div align="center">
-轻量，便捷，易部署的博客评论系统 
+轻量，便捷，易部署的博客评论系统
 </div>
 
+> 本项目基于 [Motues/Momo-Backend](https://github.com/Motues/Momo-Backend) 进行了大量功能增强。
 
-## 快速开始
+## 功能
 
-Momo Backend 包含前端和后端两个模块，需要分别进行部署。
+### 基础评论
+- 多级嵌套评论，Markdown 渲染
+- XSS 防护，IP 频率限制
+- SMTP 邮件通知（新评论 / 回复提醒，自定义模板）
+- 管理员面板（Vue 3 + ECharts 统计）
 
-### 前端部署
+### 互动增强
+- **点赞** — 指纹去重，每人每评论一次
+- **表情反应** — 10 种 emoji（❤️😂😅👀🎉😮😆😉😭🍀），独立于点赞
+- **评论置顶** — 多条置顶，按置顶时间排序
+- **图片上传** — 评论/回复支持粘贴和文件上传，存储到 R2
+- **Q&A 管理** — `about-qa` 专区，问题待审队列，管理端独立页面
+- **Memo 反应** — 碎碎念独立反应系统，管理端可编辑计数
 
-前端即为评论页面，一般集成在博客、论坛等位置，用于提交并展示评论。该组件 Svelte 进行开发。
+### 安全与运维
+- 邮箱黑名单
+- 管理员编辑/删除评论（含硬删除）
+- 用户指纹追踪（SHA-256: IP + UA + Accept-Language）
+- QQ Bot 新评论通知（NapCat）
+- 数据导出/导入（JSON）
 
-前端可以通过 CDN 引入，也可以自行修改编译成js文件，集成到自己的项目中。具体的部署方式可以参考[frontend](./frontend/README.md)。
+## 部署
 
-如果需要自己设计前端样式，或集成到已有的评论组件中，可以参考 [API 文档](./doc/api.md)自行开发。
+提供三种后端实现：
 
-### 后端部署
+| 版本 | 技术栈 | 环境要求 | 适用场景 |
+|------|--------|----------|----------|
+| **Cloudflare Worker** | Hono + D1 + KV + R2 | Wrangler CLI | 无需服务器，功能最全 |
+| **Go** | Gin + SQLite | Go >= 1.25 | 单二进制部署，高性能 |
+| **Node.js** | Koa + Prisma + SQLite | Node.js >= 22, pnpm | 有 Node 环境的服务器 |
 
-后端用于提供评论存储和评论管理服务，包括后端 API 应用和后端管理页面。
+### Worker 部署（推荐）
 
-#### API 应用
+```bash
+cd worker
+pnpm install
+npx wrangler deploy
+```
 
-API 应用维护了一个 SQLite 数据库，并对外提供 API 接口，目前提供了三种部署方式：
+前置条件：Cloudflare 账号，创建 D1 数据库 `MOMO_DB`、KV 命名空间 `MOMO_AUTH_KV`、R2 桶 `gallery`，配置 `wrangler.jsonc`。
 
-* 基于 Node.js 开发环境，需要服务器本地部署
-* 基于 Go 开发的二进制文件，需要服务器本地部署
-* 基于 Cloudflare Worker，无需服务器部署
+详见 [Worker 部署文档](./worker/README.md)
 
-具体部署方式请访问对应的文档获取具体的部署信息：[Node.js 版本](./nodejs/README.md)，[Go 版本](./go/README.md)，[Cloudflare Worker 版本](./worker/README.md)。
+### Go 部署
 
-后续会提供Vercel版本；如果需要提供其他平台的部署方式，欢迎提交邮件或者 issue 。
+从 [Release](https://github.com/RestartYHN/Momo-Backend/releases) 下载对应平台的二进制文件，或自行编译：
 
-#### 后端管理面板
+```bash
+cd go
+go build -o momo-backend main.go
+./momo-backend
+```
 
-提供一个可视化面板对评论数据进行管理，使用 Vue 开发。Release 中默认已集成编译好的静态文件，放在 `./public` 文件夹中，无需再次编译。
+默认监听 `:17171`。通过 `PORT` 环境变量或 `./config/config.yaml` 修改端口。
 
-源码位于 `./dashboard` 目录下，可以自行修改页面，并重新编译。
+详见 [Go 部署文档](./go/README.md)
 
-## 版本更新
+### Node.js 部署
 
-本项目仍处于维护状态，不定期进行更新。如果想要体验到最新功能，请参考[更新文档](./doc/update.md)进行更新。
-## 其他
+```bash
+cd nodejs
+pnpm install
+cp .env.example .env   # 编辑配置
+pnpm dev               # 开发模式
+pnpm build && pnpm start  # 生产模式
+```
 
-* [API 文档](./doc/api.md)
-* [数据库表结构](./doc/data_table.md)
-* [Momo 静态博客](https://github.com/Motues/Momo)
+详见 [Node.js 部署文档](./nodejs/README.md)
 
-## TODO
+### 管理面板
 
-- [ ] 支持其他评论系统的数据迁移
-- [ ] 支持数据导出和导入（json 文件）
-- [ ] 提供 Docker 一键部署
-- [ ] 完善文档
-- [ ] 优化页面
+Vue 3 构建的可视化管理面板，部署后访问 `/admin`。默认账号密码均为 `momo`，首次登录需修改。
 
+```bash
+cd dashboard
+pnpm install
+pnpm build            # 输出到 dist/
+# 将 dist/ 内容放到对应后端的 public/ 目录
+```
 
-> 欢迎对本仓库提出建议，进行优化
-> Made with ❤️ by [Motues](https://wwww.motues.top)
+## 文档
+
+- [API 文档](./doc/api.md)
+- [数据库表结构](./doc/data_table.md)
+- [原项目](https://github.com/Motues/Momo-Backend)
+
+> Made with ❤️ by [Motues](https://wwww.motues.top) · Enhanced by [RestartYHN](https://github.com/RestartYHN)
