@@ -11,7 +11,6 @@ import { unlikeComment } from './api/public/unlikeComment'
 import { reactComment } from './api/public/reactComment'
 import { unreactComment } from './api/public/unreactComment'
 import { uploadImage } from './api/public/uploadImage'
-import { serveImage } from './api/public/serveImage'
 import { getMemoReactions } from './api/public/memoReactions'
 import { reactMemo, unreactMemo } from './api/public/memoReact'
 import { adminLogin } from './api/admin/login'
@@ -34,7 +33,6 @@ const app = new Hono<{ Bindings: Bindings }>()
 
 // 全局跨域（从数据库读取允许的来源）
 app.use('*', async (c, next) => {
-  if (c.req.path.startsWith('/api/img/')) return next()
   const allowOriginStr = await getSetting(c.env, "allow_origin") || '*'
   const corsMiddleware = customCors(allowOriginStr)
   return corsMiddleware(c, next)
@@ -51,7 +49,6 @@ app.get('/api/memos/:id/reactions', getMemoReactions)
 app.post('/api/memos/:id/react', reactMemo)
 app.delete('/api/memos/:id/react', unreactMemo)
 app.post('/api/upload', uploadImage)
-app.get('/api/img/:id', serveImage)
 
 app.post('/admin/login', adminLogin)
 app.use('/admin/*', adminAuth)
