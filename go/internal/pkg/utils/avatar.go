@@ -4,18 +4,21 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
+var qqEmailRe = regexp.MustCompile(`^(\d{5,11})@qq\.com$`)
+
 // GetCravatar 生成 Cravatar/Gravatar 头像地址
 func GetCravatar(email string) string {
-	// 1. 处理 Email
 	cleanEmail := strings.ToLower(strings.TrimSpace(email))
+
+	if match := qqEmailRe.FindStringSubmatch(cleanEmail); match != nil {
+		return fmt.Sprintf("https://q1.qlogo.cn/g?b=qq&nk=%s&s=100", match[1])
+	}
+
 	hash := md5.Sum([]byte(cleanEmail))
 	hashHex := hex.EncodeToString(hash[:])
-
-	// avatar 地址
-	avatarURL := fmt.Sprintf("https://open.motues.top/avatar?name=%s&mode=cravatar&variant=beam", hashHex)
-
-	return avatarURL
+	return fmt.Sprintf("https://open.motues.top/avatar?name=%s&mode=cravatar&variant=beam", hashHex)
 }
