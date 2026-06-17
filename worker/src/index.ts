@@ -26,6 +26,7 @@ import { userComments } from './api/admin/userComments'
 import { exportSettings, exportComments } from './api/admin/dataExport'
 import { importComments, importSettings } from './api/admin/dataImport'
 import { pinComment } from './api/admin/pinComment'
+import { updateComment } from './api/admin/updateComment'
 import { deleteComment } from './api/admin/deleteComment'
 import { listMemoReactions, deleteMemoReaction, updateMemoReaction } from './api/admin/memoReactions'
 
@@ -69,6 +70,7 @@ app.get('/admin/data/export/comments', exportComments);
 app.post('/admin/data/import/comments', importComments);
 app.post('/admin/data/import/settings', importSettings);
 app.put('/admin/comments/:id/pin', pinComment);
+app.put('/admin/comments/:id', updateComment);
 app.delete('/admin/comments/:id', deleteComment);
 app.get('/admin/memo-reactions', listMemoReactions);
 app.delete('/admin/memo-reactions', deleteMemoReaction);

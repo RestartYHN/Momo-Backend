@@ -51,12 +51,11 @@ export const adminLogin = async (c: Context<{ Bindings: Bindings }>) => {
   // 生成 Token (你的 tempKey)
   const tempKey = crypto.randomUUID();
 
-  // 将 Token 存入 KV，有效期 20 分钟 (1200秒)
-  // 我们存入一个对象，包含用户名和登录 IP，增加安全性
+  // 将 Token 存入 KV，有效期 24 小时
   await c.env.MOMO_AUTH_KV.put(`token:${tempKey}`, JSON.stringify({
     user: data.name,
     ip: ip
-  }), { expirationTtl: 1200 });
+  }), { expirationTtl: 86400 });
 
   const needChangePassword = await isDefaultAdmin(c.env);
 

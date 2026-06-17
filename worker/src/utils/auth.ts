@@ -1,6 +1,13 @@
 import { Context, Next } from 'hono';
 import { Bindings } from '../bindings';
 
+export async function verifyToken(c: Context<{ Bindings: Bindings }>): Promise<boolean> {
+  const token = c.req.header('Authorization')?.replace('Bearer ', '');
+  if (!token) return false;
+  const sessionData = await c.env.MOMO_AUTH_KV.get(`token:${token}`);
+  return !!sessionData;
+}
+
 export const adminAuth = async (c: Context<{ Bindings: Bindings }>, next: Next) => {
   const token = c.req.header('Authorization')?.replace('Bearer ', '');
   if (!token) return c.json({ message: "Unauthorized" }, 401);
