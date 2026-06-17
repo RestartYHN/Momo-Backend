@@ -20,5 +20,5 @@ func GetCravatar(email string) string {
 
 	hash := md5.Sum([]byte(cleanEmail))
 	hashHex := hex.EncodeToString(hash[:])
-	return fmt.Sprintf("https://cravatar.cn/avatar/%s?d=identicon&s=100", hashHex)
+	return fmt.Sprintf("https://open.motues.top/avatar?name=%s&mode=cravatar&variant=beam", hashHex)
 }
