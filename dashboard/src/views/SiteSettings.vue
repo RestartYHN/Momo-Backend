@@ -58,6 +58,32 @@
         </div>
       </section>
 
+      <!-- 黑名单设置 -->
+      <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-ban text-red-500"></i> 邮箱黑名单
+        </h2>
+        <p class="text-sm text-gray-500 mb-3">黑名单中的邮箱提交评论时将被拒绝（返回 403）。</p>
+        <div class="flex flex-wrap gap-2 mb-2 min-h-[28px]">
+          <span v-for="(email, index) in emailBlacklist" :key="index"
+            class="inline-flex items-center gap-1 px-3 py-1 bg-red-50 border border-red-200 text-red-700 rounded-full text-sm">
+            {{ email }}
+            <button @click="removeBlacklistEmail(index)" class="hover:text-red-900 transition-colors leading-none">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </span>
+        </div>
+        <div class="flex gap-2">
+          <input v-model="newBlacklistEmail" type="email" placeholder="spam@example.com" @keydown.enter.prevent="addBlacklistEmail"
+            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm" />
+          <button @click="addBlacklistEmail" :disabled="!newBlacklistEmail.trim()"
+            class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors text-sm font-medium">
+            添加
+          </button>
+        </div>
+        <p class="text-xs text-gray-400 mt-1">输入邮箱后按回车或点击"添加"，点击标签上的 × 可删除</p>
+      </section>
+
       <!-- SMTP 邮件设置 -->
       <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div class="flex items-center justify-between mb-4">
@@ -178,6 +204,9 @@ const saved = ref(false)
 const originList = ref([])
 const newOrigin = ref('')
 
+const emailBlacklist = ref([])
+const newBlacklistEmail = ref('')
+
 const addOrigin = () => {
   const val = newOrigin.value.trim()
   if (val && !originList.value.includes(val)) {
@@ -188,6 +217,18 @@ const addOrigin = () => {
 
 const removeOrigin = (index) => {
   originList.value.splice(index, 1)
+}
+
+const addBlacklistEmail = () => {
+  const val = newBlacklistEmail.value.trim().toLowerCase()
+  if (val && !emailBlacklist.value.includes(val)) {
+    emailBlacklist.value.push(val)
+  }
+  newBlacklistEmail.value = ''
+}
+
+const removeBlacklistEmail = (index) => {
+  emailBlacklist.value.splice(index, 1)
 }
 
 const isDirty = ref(false)
@@ -207,9 +248,9 @@ const form = reactive({
   notification_template: '',
 })
 
-const takeSnapshot = () => JSON.stringify({ ...form, _origins: [...originList.value] })
+const takeSnapshot = () => JSON.stringify({ ...form, _origins: [...originList.value], _blacklist: [...emailBlacklist.value] })
 
-watch([form, originList], () => {
+watch([form, originList, emailBlacklist], () => {
   isDirty.value = takeSnapshot() !== initialSnapshot
 }, { deep: true })
 
@@ -238,6 +279,11 @@ const loadSettings = async () => {
       originList.value = form.allow_origin
         ? form.allow_origin.split(',').map(s => s.trim()).filter(Boolean)
         : []
+      try {
+        emailBlacklist.value = form.email_blacklist
+          ? JSON.parse(form.email_blacklist)
+          : []
+      } catch { emailBlacklist.value = [] }
     }
   } catch (e) {
     console.error('Failed to load settings:', e)
@@ -254,7 +300,7 @@ const saveSettings = async () => {
   loading.value = true
   saved.value = false
   try {
-    const payload = { ...form, allow_origin: originList.value.join(',') }
+    const payload = { ...form, allow_origin: originList.value.join(','), email_blacklist: JSON.stringify(emailBlacklist.value) }
     if (!payload.email_password) {
       delete payload.email_password
     }
