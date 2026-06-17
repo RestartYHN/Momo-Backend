@@ -17,7 +17,7 @@ export const getCravatar = async (email: string): Promise<string> => {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-    return `https://www.gravatar.com/avatar/${hashHex}?d=identicon&s=100`;
+    return `https://gravatar.loli.net/avatar/${hashHex}?d=identicon&s=100`;
   } catch {
     return '';
   }

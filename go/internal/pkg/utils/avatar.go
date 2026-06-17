@@ -20,5 +20,5 @@ func GetCravatar(email string) string {
 
 	hash := md5.Sum([]byte(cleanEmail))
 	hashHex := hex.EncodeToString(hash[:])
-	return fmt.Sprintf("https://www.gravatar.com/avatar/%s?d=identicon&s=100", hashHex)
+	return fmt.Sprintf("https://gravatar.loli.net/avatar/%s?d=identicon&s=100", hashHex)
 }
