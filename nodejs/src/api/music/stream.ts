@@ -4,6 +4,7 @@ import https from "https";
 import { neteaseGet } from "./neteaseClient";
 
 const REAL_IP = (process.env.NETEASE_REAL_IP || "").trim();
+const CONNECT_TIMEOUT_MS = 15000;
 
 const STREAM_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
@@ -34,11 +35,16 @@ async function resolvePlayUrl(id: string, level: string, cookie?: string): Promi
   return "";
 }
 
+interface UpstreamConn {
+  req: http.ClientRequest;
+  res: http.IncomingMessage;
+}
+
 function proxyOnce(
   targetUrl: string,
   range: string | undefined,
   redirectsLeft: number,
-): Promise<http.IncomingMessage> {
+): Promise<UpstreamConn> {
   return new Promise((resolve, reject) => {
     let url: URL;
     try {
@@ -55,19 +61,29 @@ function proxyOnce(
     };
     if (range) headers.Range = range;
 
-    const req = lib.request(url, { method: "GET", headers, timeout: 15000 }, (res) => {
+    const req = lib.request(url, { method: "GET", headers }, (res) => {
+      clearTimeout(connectTimer);
       const status = res.statusCode || 0;
       if (status >= 300 && status < 400 && res.headers.location && redirectsLeft > 0) {
         res.resume();
+        req.destroy();
         const next = new URL(res.headers.location, url).toString();
         proxyOnce(next, range, redirectsLeft - 1).then(resolve, reject);
         return;
       }
-      resolve(res);
+      resolve({ req, res });
     });
 
-    req.on("timeout", () => req.destroy(new Error("Upstream request timeout")));
-    req.on("error", reject);
+    // Only guard the *connection* phase. Once streaming starts we must NOT kill
+    // the socket on idle, or the browser pausing/buffering would drop playback.
+    const connectTimer = setTimeout(() => {
+      req.destroy(new Error("Upstream connect timeout"));
+    }, CONNECT_TIMEOUT_MS);
+
+    req.on("error", (e) => {
+      clearTimeout(connectTimer);
+      reject(e);
+    });
     req.end();
   });
 }
@@ -90,22 +106,41 @@ export async function streamTrack(ctx: Context) {
     return;
   }
 
-  let upstream: http.IncomingMessage;
+  let conn: UpstreamConn;
   try {
-    upstream = await proxyOnce(playUrl, ctx.headers.range as string | undefined, 3);
+    conn = await proxyOnce(playUrl, ctx.headers.range as string | undefined, 3);
   } catch (error) {
     ctx.status = 502;
     ctx.body = { code: 502, message: "Upstream fetch failed", error: (error as Error).message };
     return;
   }
 
+  const { req: upReq, res: upstream } = conn;
   const status = upstream.statusCode || 200;
+
   if (status >= 400) {
     upstream.resume();
+    upReq.destroy();
     ctx.status = 502;
     ctx.body = { code: 502, message: `Upstream returned ${status}` };
     return;
   }
+
+  // Swallow upstream errors so a mid-stream ECONNRESET never crashes the process.
+  upstream.on("error", () => {
+    try { upReq.destroy(); } catch {}
+  });
+  upReq.on("error", () => {
+    try { upstream.destroy(); } catch {}
+  });
+  // When the browser aborts (seek / next / pause / navigate away), tear down the
+  // upstream connection too, otherwise sockets leak and eventually exhaust.
+  const abortUpstream = () => {
+    try { upReq.destroy(); } catch {}
+    try { upstream.destroy(); } catch {}
+  };
+  ctx.req.on("close", abortUpstream);
+  ctx.req.on("aborted", abortUpstream);
 
   ctx.status = status; // 200 full, 206 partial (range)
   ctx.set("Accept-Ranges", "bytes");
