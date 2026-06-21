@@ -2,49 +2,61 @@ import { Context } from "koa";
 import { getQrSession, getTokenSession, saveTokenSession } from "./sessionStore";
 import { mergeCookies, neteaseGet } from "./neteaseClient";
 
-const trackCache = new Map<string, { expiresAt: number; data: unknown }>();
-const TRACK_TTL_MS = 10 * 60 * 1000;
+const REAL_IP = (process.env.NETEASE_REAL_IP || "").trim();
+
+// Only metadata (detail + lyric) is cached; it is stable. The playback URL is a
+// short-lived, signed NetEase CDN link and must be resolved fresh on every call,
+// otherwise a cached link expires and the browser gets a 403.
+const metaCache = new Map<string, { expiresAt: number; meta: any }>();
+const META_TTL_MS = 30 * 60 * 1000;
+
+function toHttps(u: string): string {
+  return u.startsWith("http://") ? "https://" + u.slice("http://".length) : u;
+}
+
+async function resolveAudioUrl(id: string, cookie?: string): Promise<string> {
+  const params: Record<string, string | number> = { id, level: "exhigh", timestamp: Date.now() };
+  if (REAL_IP) params.realIP = REAL_IP;
+  const resp = await neteaseGet("/song/url/v1", params, cookie, "pc");
+  const item = Array.isArray((resp.data as any)?.data) ? (resp.data as any).data[0] : undefined;
+  const fee = Number(item?.fee || 0);
+  const isPreviewOnly = item?.freeTrialInfo != null;
+  if (!item?.url || (fee > 0 && isPreviewOnly)) return "";
+  return toHttps(String(item.url));
+}
 
 async function fetchTrackById(id: string, cookie?: string) {
   const cacheKey = cookie ? `${id}:vip` : id;
-  const cached = trackCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.data;
+
+  let entry = metaCache.get(cacheKey);
+  if (!entry || entry.expiresAt <= Date.now()) {
+    const [detailResp, lrcResp] = await Promise.all([
+      neteaseGet("/song/detail", { ids: id, timestamp: Date.now() }, cookie, "pc"),
+      neteaseGet("/lyric", { id, timestamp: Date.now() }, cookie, "pc"),
+    ]);
+
+    const detailData = detailResp.data as any;
+    const lrcData = lrcResp.data as any;
+    const song = Array.isArray(detailData.songs) ? detailData.songs[0] : undefined;
+
+    entry = {
+      expiresAt: Date.now() + META_TTL_MS,
+      meta: {
+        id,
+        title: song?.name || `Song ${id}`,
+        artist: Array.isArray(song?.ar) ? song.ar.map((item: any) => item?.name || "Unknown").join(", ") : "Unknown Artist",
+        cover: song?.al?.picUrl || "",
+        lyric: typeof lrcData.lrc?.lyric === "string" ? lrcData.lrc.lyric : "",
+        tlyric: typeof lrcData.tlyric?.lyric === "string" ? lrcData.tlyric.lyric : "",
+      },
+    };
+    metaCache.set(cacheKey, entry);
   }
 
-  const [detailResp, urlResp, lrcResp] = await Promise.all([
-    neteaseGet("/song/detail", { ids: id, timestamp: Date.now() }, cookie, "pc"),
-    neteaseGet("/song/url/v1", { id, level: "standard", timestamp: Date.now() }, cookie, "pc"),
-    neteaseGet("/lyric", { id, timestamp: Date.now() }, cookie, "pc"),
-  ]);
+  // Always fresh, never cached: browser plays this CDN link directly (fast, off our metered server).
+  const audio = await resolveAudioUrl(id, cookie);
 
-  const detailData = detailResp.data as any;
-  const urlData = urlResp.data as any;
-  const lrcData = lrcResp.data as any;
-  const song = Array.isArray(detailData.songs) ? detailData.songs[0] : undefined;
-  const urlItem = Array.isArray(urlData.data) ? urlData.data[0] : undefined;
-  const fee = Number(urlItem?.fee || 0);
-  const isPreviewOnly = urlItem?.freeTrialInfo != null;
-  const audioUrl = fee > 0 && isPreviewOnly ? "" : (urlItem?.url || "");
-  const lyricText = typeof lrcData.lrc?.lyric === "string" ? lrcData.lrc.lyric : "";
-  const translatedLyricText = typeof lrcData.tlyric?.lyric === "string" ? lrcData.tlyric.lyric : "";
-
-  const data = {
-    id,
-    title: song?.name || `Song ${id}`,
-    artist: Array.isArray(song?.ar) ? song.ar.map((item: any) => item?.name || "Unknown").join(", ") : "Unknown Artist",
-    cover: song?.al?.picUrl || "",
-    audio: audioUrl,
-    lyric: lyricText,
-    tlyric: translatedLyricText,
-  };
-
-  trackCache.set(cacheKey, {
-    expiresAt: Date.now() + TRACK_TTL_MS,
-    data,
-  });
-
-  return data;
+  return { ...entry.meta, audio };
 }
 
 function toSongIdList(items: unknown): string[] {
