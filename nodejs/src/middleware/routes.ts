@@ -2,6 +2,7 @@ import Router from"@koa/router";
 import { getCommentBySlug, postComment } from "../api/index" // public
 import { getAllComments, changeCommentStatus, login, getStatsOverview, getUserList, getUserComments, getSettings, updateSettings, changePassword, testEmail, importComments, importSettings, exportSettings, exportComments } from "../api/index" // admin
 import { getUserData, getPlaylistSongs, getPublicUserData, getPublicPlaylistSongs, getCookieUserData, getCookiePlaylistSongs, getTrack, getPodcastPrograms, getPodcastProgramDetail, getUserRecord, getUserAlbums, getAlbum, searchSongs } from "../api/index" // music
+import { streamTrack } from "../api/music/stream"; // music audio proxy
 import fs from "fs";
 import path from "path";
 
@@ -27,6 +28,7 @@ router.get("/api/music/public-playlist-songs", getPublicPlaylistSongs);
 router.get("/api/music/cookie-user", getCookieUserData);
 router.get("/api/music/cookie-playlist-songs", getCookiePlaylistSongs);
 router.get("/api/music/track", getTrack);
+router.get("/api/music/stream", streamTrack);
 router.get("/api/music/podcast/programs", getPodcastPrograms);
 router.get("/api/music/podcast/detail", getPodcastProgramDetail);
 router.get("/api/music/record", getUserRecord);
