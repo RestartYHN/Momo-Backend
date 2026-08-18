@@ -59,17 +59,6 @@ async function fetchTrackById(id: string, cookie?: string) {
   return { ...entry.meta, audio };
 }
 
-function toSongIdList(items: unknown): string[] {
-  if (!Array.isArray(items)) return [];
-  return items
-    .map((it) => {
-      const id = (it as { id?: number | string })?.id;
-      return id !== undefined ? String(id) : "";
-    })
-    .filter(Boolean)
-    .slice(0, 100);
-}
-
 async function buildUserSnapshot(cookie: string) {
   const accountResp = await neteaseGet("/user/account", { timestamp: Date.now() }, cookie, "pc");
   const profile = (accountResp.data.profile || {}) as {
@@ -83,10 +72,9 @@ async function buildUserSnapshot(cookie: string) {
     throw new Error("Unable to resolve user ID after QR login");
   }
 
-  const [playlistResp, recentResp, likeResp] = await Promise.all([
+  const [playlistResp, recentResp] = await Promise.all([
     neteaseGet("/user/playlist", { uid: userId, limit: 50, timestamp: Date.now() }, cookie, "pc"),
     neteaseGet("/record/recent/song", { limit: 100, timestamp: Date.now() }, cookie, "pc"),
-    neteaseGet("/likelist", { uid: userId, timestamp: Date.now() }, cookie, "pc"),
   ]);
 
   const playlistsRaw = Array.isArray(playlistResp.data.playlist)
@@ -115,8 +103,6 @@ async function buildUserSnapshot(cookie: string) {
         .slice(0, 100)
     : [];
 
-  const favoriteSongs = toSongIdList(likeResp.data.ids);
-
   return {
     userId,
     username: profile.nickname || "NetEase User",
@@ -130,7 +116,6 @@ async function buildUserSnapshot(cookie: string) {
       })),
     recentSongs,
     recentHistory,
-    favoriteSongs,
   };
 }
 
@@ -191,7 +176,6 @@ async function buildPublicSnapshot(userId: string) {
       })),
     recentSongs,
     recentHistory: [],
-    favoriteSongs: recentSongs,
     source: "public-profile",
   };
 }
