@@ -90,7 +90,7 @@ async function buildUserSnapshot(cookie: string) {
   ]);
 
   const playlistsRaw = Array.isArray(playlistResp.data.playlist)
-    ? (playlistResp.data.playlist as Array<{ id?: number; name?: string; trackCount?: number }>)
+    ? (playlistResp.data.playlist as Array<{ id?: number; name?: string; trackCount?: number; specialType?: number }>)
     : [];
 
   const recentData = (recentResp.data.data || {}) as { list?: Array<{ data?: { id?: number } }> };
@@ -121,11 +121,13 @@ async function buildUserSnapshot(cookie: string) {
     userId,
     username: profile.nickname || "NetEase User",
     avatarUrl: profile.avatarUrl || "",
-    playlists: playlistsRaw.map((pl) => ({
-      id: pl.id ? String(pl.id) : "",
-      name: pl.name || "Playlist",
-      songCount: pl.trackCount || 0,
-    })),
+    playlists: playlistsRaw
+      .filter((pl) => Number(pl.specialType) !== 5)
+      .map((pl) => ({
+        id: pl.id ? String(pl.id) : "",
+        name: pl.name || "Playlist",
+        songCount: pl.trackCount || 0,
+      })),
     recentSongs,
     recentHistory,
     favoriteSongs,
@@ -155,7 +157,7 @@ async function buildPublicSnapshot(userId: string) {
   );
 
   const playlistsRaw = Array.isArray(playlistResp.data.playlist)
-    ? (playlistResp.data.playlist as Array<{ id?: number; name?: string; trackCount?: number }>)
+    ? (playlistResp.data.playlist as Array<{ id?: number; name?: string; trackCount?: number; specialType?: number }>)
     : [];
 
   const firstPlaylistId = playlistsRaw[0]?.id ? String(playlistsRaw[0].id) : "";
@@ -180,11 +182,13 @@ async function buildPublicSnapshot(userId: string) {
     userId: resolvedUserId,
     username: profile.nickname || "NetEase User",
     avatarUrl: profile.avatarUrl || "",
-    playlists: playlistsRaw.map((pl) => ({
-      id: pl.id ? String(pl.id) : "",
-      name: pl.name || "Playlist",
-      songCount: pl.trackCount || 0,
-    })),
+    playlists: playlistsRaw
+      .filter((pl) => Number(pl.specialType) !== 5)
+      .map((pl) => ({
+        id: pl.id ? String(pl.id) : "",
+        name: pl.name || "Playlist",
+        songCount: pl.trackCount || 0,
+      })),
     recentSongs,
     recentHistory: [],
     favoriteSongs: recentSongs,
