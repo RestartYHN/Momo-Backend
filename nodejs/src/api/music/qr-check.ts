@@ -388,7 +388,7 @@ export async function getPlaylistSongs(ctx: Context) {
 
     const playlistResp = await neteaseGet(
       "/playlist/track/all",
-      { id: playlistId, limit: 100000, offset: 0, timestamp: Date.now() },
+      { id: playlistId, limit: 200, offset: 0, timestamp: Date.now() },
       session.cookie,
       "pc",
     );
@@ -400,7 +400,7 @@ export async function getPlaylistSongs(ctx: Context) {
     const songs = songsRaw
       .map((s) => (s.id !== undefined ? String(s.id) : ""))
       .filter(Boolean)
-      .slice(0, 100000);
+      .slice(0, 200);
 
     ctx.body = {
       code: 200,
@@ -463,7 +463,7 @@ export async function getPublicPlaylistSongs(ctx: Context) {
 
     const playlistResp = await neteaseGet(
       "/playlist/track/all",
-      { id: playlistId, limit: 100000, offset: 0, timestamp: Date.now() },
+      { id: playlistId, limit: 200, offset: 0, timestamp: Date.now() },
       undefined,
       "pc",
     );
@@ -475,7 +475,7 @@ export async function getPublicPlaylistSongs(ctx: Context) {
     const songs = songsRaw
       .map((s) => (s.id !== undefined ? String(s.id) : ""))
       .filter(Boolean)
-      .slice(0, 100000);
+      .slice(0, 200);
 
     ctx.body = {
       code: 200,
@@ -548,7 +548,7 @@ export async function getCookiePlaylistSongs(ctx: Context) {
 
     const playlistResp = await neteaseGet(
       "/playlist/track/all",
-      { id: playlistId, limit: 100000, offset: 0, timestamp: Date.now() },
+      { id: playlistId, limit: 200, offset: 0, timestamp: Date.now() },
       cookie,
       "pc",
     );
@@ -560,7 +560,7 @@ export async function getCookiePlaylistSongs(ctx: Context) {
     const songs = songsRaw
       .map((s) => (s.id !== undefined ? String(s.id) : ""))
       .filter(Boolean)
-      .slice(0, 100000);
+      .slice(0, 200);
 
     ctx.body = {
       code: 200,
