@@ -15,8 +15,6 @@ import { exportSettings, exportComments } from "./admin/dataExport";
 import {
 	getCookiePlaylistSongs,
 	getCookieUserData,
-	getUserData,
-	getPlaylistSongs,
 	getPublicUserData,
 	getPublicPlaylistSongs,
 	getTrack,
@@ -31,8 +29,6 @@ import {
 export { getCommentBySlug, postComment };
 export { getAllComments, changeCommentStatus, login, getStatsOverview, getUserList, getUserComments, getSettings, updateSettings, changePassword, testEmail, importComments, importSettings, exportSettings, exportComments };
 export {
-	getUserData,
-	getPlaylistSongs,
 	getPublicUserData,
 	getPublicPlaylistSongs,
 	getCookieUserData,

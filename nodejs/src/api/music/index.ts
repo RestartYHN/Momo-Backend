@@ -1,18 +1,17 @@
 import {
   getCookiePlaylistSongs,
   getCookieUserData,
-  getPlaylistSongs,
   getPublicPlaylistSongs,
   getPublicUserData,
   getTrack,
-  getUserData,
+  getUserRecord,
+  getUserAlbums,
+  getAlbum,
+  searchSongs,
 } from "./qr-check";
 import { getPodcastPrograms, getPodcastProgramDetail } from "./podcast";
-import { getUserRecord, getUserAlbums, getAlbum, searchSongs } from "./qr-check";
 
 export {
-  getUserData,
-  getPlaylistSongs,
   getPublicUserData,
   getPublicPlaylistSongs,
   getCookieUserData,
