@@ -9,6 +9,46 @@ const REAL_IP = (process.env.NETEASE_REAL_IP || "").trim();
 const metaCache = new Map<string, { expiresAt: number; meta: any }>();
 const META_TTL_MS = 30 * 60 * 1000;
 
+// Playlist track metadata (title/artist/cover) is stable and large; cache it so
+// re-entering the page does not refetch hundreds of songs from the upstream API.
+const MAX_PLAYLIST_TRACKS = 500;
+const playlistCache = new Map<string, { expiresAt: number; songs: string[]; tracks: any[] }>();
+const PLAYLIST_TTL_MS = 10 * 60 * 1000;
+
+function mapPlaylistTracks(songsRaw: any[], limit: number) {
+  return songsRaw
+    .map((s: any) => ({
+      id: s?.id !== undefined ? String(s.id) : "",
+      title: s?.name || "Unknown",
+      artist: Array.isArray(s?.ar) ? s.ar.map((a: any) => a?.name || "Unknown").join(", ") : "Unknown Artist",
+      cover: s?.al?.picUrl || "",
+    }))
+    .filter((t) => t.id)
+    .slice(0, limit);
+}
+
+// One upstream call returns the whole playlist's metadata (no N+1 per-track fetch).
+async function fetchPlaylistTracks(playlistId: string, cookie: string | undefined, limit: number) {
+  const cacheKey = `${playlistId}:${cookie ? "c" : "p"}`;
+  const cached = playlistCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { songs: cached.songs, tracks: cached.tracks };
+  }
+
+  const resp = await neteaseGet(
+    "/playlist/track/all",
+    { id: playlistId, limit, offset: 0, timestamp: Date.now() },
+    cookie,
+    "pc",
+  );
+  const songsRaw = Array.isArray(resp.data?.songs) ? (resp.data.songs as any[]) : [];
+  const tracks = mapPlaylistTracks(songsRaw, limit);
+  const songs = tracks.map((t) => t.id);
+
+  playlistCache.set(cacheKey, { expiresAt: Date.now() + PLAYLIST_TTL_MS, songs, tracks });
+  return { songs, tracks };
+}
+
 function toHttps(u: string): string {
   return u.startsWith("http://") ? "https://" + u.slice("http://".length) : u;
 }
@@ -95,13 +135,6 @@ async function buildUserSnapshot(cookie: string) {
         .filter(Boolean)
         .slice(0, 100)
     : [];
-  const recentSongs = Array.isArray(recentData.list)
-    ? recentData.list
-        .map((x) => (x.data?.id !== undefined ? String(x.data.id) : ""))
-        .filter(Boolean)
-        .slice(0, 100)
-    : [];
-
   return {
     userId,
     username: profile.nickname || "NetEase User",
@@ -113,7 +146,6 @@ async function buildUserSnapshot(cookie: string) {
         name: pl.name || "Playlist",
         songCount: pl.trackCount || 0,
       })),
-    recentSongs,
     recentHistory,
   };
 }
@@ -144,24 +176,6 @@ async function buildPublicSnapshot(userId: string) {
     ? (playlistResp.data.playlist as Array<{ id?: number; name?: string; trackCount?: number; specialType?: number }>)
     : [];
 
-  const firstPlaylistId = playlistsRaw[0]?.id ? String(playlistsRaw[0].id) : "";
-  let recentSongs: string[] = [];
-  if (firstPlaylistId) {
-    const firstPlaylistResp = await neteaseGet(
-      "/playlist/track/all",
-      { id: firstPlaylistId, limit: 100, offset: 0, timestamp: Date.now() },
-      undefined,
-      "pc",
-    );
-    const songsRaw = Array.isArray(firstPlaylistResp.data.songs)
-      ? (firstPlaylistResp.data.songs as Array<{ id?: number }>)
-      : [];
-    recentSongs = songsRaw
-      .map((s) => (s.id !== undefined ? String(s.id) : ""))
-      .filter(Boolean)
-      .slice(0, 100);
-  }
-
   return {
     userId: resolvedUserId,
     username: profile.nickname || "NetEase User",
@@ -173,7 +187,6 @@ async function buildPublicSnapshot(userId: string) {
         name: pl.name || "Playlist",
         songCount: pl.trackCount || 0,
       })),
-    recentSongs,
     recentHistory: [],
     source: "public-profile",
   };
@@ -220,21 +233,7 @@ export async function getPublicPlaylistSongs(ctx: Context) {
       return;
     }
 
-    const playlistResp = await neteaseGet(
-      "/playlist/track/all",
-      { id: playlistId, limit: 200, offset: 0, timestamp: Date.now() },
-      undefined,
-      "pc",
-    );
-
-    const songsRaw = Array.isArray(playlistResp.data.songs)
-      ? (playlistResp.data.songs as Array<{ id?: number }>)
-      : [];
-
-    const songs = songsRaw
-      .map((s) => (s.id !== undefined ? String(s.id) : ""))
-      .filter(Boolean)
-      .slice(0, 200);
+    const { songs, tracks } = await fetchPlaylistTracks(playlistId, undefined, MAX_PLAYLIST_TRACKS);
 
     ctx.body = {
       code: 200,
@@ -242,6 +241,7 @@ export async function getPublicPlaylistSongs(ctx: Context) {
       data: {
         playlistId,
         songs,
+        tracks,
       },
     };
   } catch (error) {
@@ -305,21 +305,7 @@ export async function getCookiePlaylistSongs(ctx: Context) {
       return;
     }
 
-    const playlistResp = await neteaseGet(
-      "/playlist/track/all",
-      { id: playlistId, limit: 200, offset: 0, timestamp: Date.now() },
-      cookie,
-      "pc",
-    );
-
-    const songsRaw = Array.isArray(playlistResp.data.songs)
-      ? (playlistResp.data.songs as Array<{ id?: number }>)
-      : [];
-
-    const songs = songsRaw
-      .map((s) => (s.id !== undefined ? String(s.id) : ""))
-      .filter(Boolean)
-      .slice(0, 200);
+    const { songs, tracks } = await fetchPlaylistTracks(playlistId, cookie, MAX_PLAYLIST_TRACKS);
 
     ctx.body = {
       code: 200,
@@ -327,6 +313,7 @@ export async function getCookiePlaylistSongs(ctx: Context) {
       data: {
         playlistId,
         songs,
+        tracks,
       },
     };
   } catch (error) {

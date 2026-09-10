@@ -14,6 +14,20 @@
 
 升级完成后，请执行 `pnpm install` 安装依赖包。
 
+#### 构建顺序（重要，2026-09-10 踩坑记录）
+
+`dist/` 与 `src/generated/prisma` 都在 `nodejs/.gitignore` 中，**不会**随仓库或发布包提供，必须在目标机现场生成 + 编译，且**顺序不能反**：
+
+```bash
+cd <nodejs 项目根目录>
+npx prisma generate        # 先跑：生成 Prisma Client（含本机原生引擎）
+npx tsc -p tsconfig.json   # 再编译：产出 dist/
+pm2 restart momo-backend
+```
+
+- 若先跑 `tsc`，会因缺少 `src/generated/prisma` 报一堆 `TS7006 implicit any` / `TS2307 Cannot find module`，**并非代码错误**。
+- 若提示 `Environment variable not found: DATABASE_URL`：改用 `DATABASE_URL="file:./dev.db" npx prisma generate`。
+
 ### Go
 
 从 [Relase](https://github.com/Motues/Momo/releases) 下载最新二进制文件，替换原有二进制即可，数据库文件无需修改。
