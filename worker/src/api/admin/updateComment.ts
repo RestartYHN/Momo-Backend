@@ -4,7 +4,7 @@ import { parseMarkdown } from '../../utils/markdown'
 import { checkContent } from '../public/postComment'
 
 export const updateComment = async (c: Context<{ Bindings: Bindings }>) => {
-  const id = parseInt(c.req.param('id'))
+  const id = parseInt(c.req.param('id') || '', 10)
   if (!id) return c.json({ message: 'Invalid id' }, 400)
 
   const body = await c.req.json()

@@ -2,7 +2,7 @@ import { Context } from 'hono'
 import { Bindings } from '../../bindings'
 
 export const deleteComment = async (c: Context<{ Bindings: Bindings }>) => {
-  const id = parseInt(c.req.param('id'))
+  const id = parseInt(c.req.param('id') || '', 10)
   if (!id) return c.json({ message: 'Invalid id' }, 400)
 
   try {

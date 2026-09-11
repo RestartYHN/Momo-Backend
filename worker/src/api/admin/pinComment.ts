@@ -3,7 +3,7 @@ import { Bindings } from '../../bindings'
 import { verifyToken } from '../../utils/auth'
 
 export const pinComment = async (c: Context<{ Bindings: Bindings }>) => {
-  const id = parseInt(c.req.param('id'))
+  const id = parseInt(c.req.param('id') || '', 10)
   if (!id) return c.json({ message: 'Invalid id' }, 400)
 
   try {

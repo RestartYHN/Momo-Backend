@@ -22,7 +22,10 @@ export const getComments = async (c: Context<{ Bindings: Bindings }>) => {
       WHERE post_slug = ? AND status = "approved"
       ORDER BY ${sort_by}
     `
-    const { results } = await c.env.MOMO_DB.prepare(query).bind(post_slug).all()
+    const { results } = await c.env.MOMO_DB.prepare(query).bind(post_slug).all<{
+      id: number; author: string; email: string; url: string; contentText: string;
+      contentHtml: string; pubDate: string; parentId: number | null; likeCount: number; pinned: number;
+    }>()
 
     const fingerprint = await getCommentFingerprint(c)
     const likedRows = await c.env.MOMO_DB.prepare(

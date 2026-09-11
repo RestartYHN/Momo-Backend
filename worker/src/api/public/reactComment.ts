@@ -5,7 +5,7 @@ import { getCommentFingerprint } from '../../utils/fingerprint'
 const VALID_REACTIONS = ['❤️','😂','😅','👀','🎉','😮','😆','😉','😭','🍀']
 
 export const reactComment = async (c: Context<{ Bindings: Bindings }>) => {
-  const id = parseInt(c.req.param('id'))
+  const id = parseInt(c.req.param('id') || '', 10)
   if (!id) return c.json({ message: 'Invalid id' }, 400)
 
   const body = await c.req.json().catch(() => null)

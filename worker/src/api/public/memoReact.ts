@@ -6,6 +6,7 @@ const VALID = ['❤️','😂','😅','👀','🎉','😮','😆','😉','😭',
 
 export const reactMemo = async (c: Context<{ Bindings: Bindings }>) => {
   const mid = c.req.param('id')
+  if (!mid) return c.json({ message: 'Invalid id' }, 400)
   const body = await c.req.json().catch(() => null)
   const rt = body?.reaction_type
   if (!VALID.includes(rt)) return c.json({ message: 'Invalid' }, 400)
@@ -24,6 +25,7 @@ export const reactMemo = async (c: Context<{ Bindings: Bindings }>) => {
 
 export const unreactMemo = async (c: Context<{ Bindings: Bindings }>) => {
   const mid = c.req.param('id')
+  if (!mid) return c.json({ message: 'Invalid id' }, 400)
   const body = await c.req.json().catch(() => null)
   const rt = body?.reaction_type
   const fp = await getCommentFingerprint(c)
