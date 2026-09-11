@@ -97,7 +97,7 @@ export const postComment = async (c: Context<{ Bindings: Bindings }>) => {
       uaResult.device.model || uaResult.device.type || "Desktop",
       userAgent,
       content,
-      parseMarkdown(content),
+      await parseMarkdown(content),
       data.parent_id || null,
       commentStatus
     ).run();

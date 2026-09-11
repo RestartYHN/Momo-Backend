@@ -20,7 +20,7 @@ export const updateComment = async (c: Context<{ Bindings: Bindings }>) => {
 
     if (content_text) {
       const sanitized = checkContent(content_text)
-      const contentHtml = parseMarkdown(sanitized)
+      const contentHtml = await parseMarkdown(sanitized)
       await c.env.MOMO_DB.prepare(
         'UPDATE Comment SET content_text = ?, content_html = ? WHERE id = ?'
       ).bind(sanitized, contentHtml, id).run()

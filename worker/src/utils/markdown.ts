@@ -26,8 +26,9 @@ export function isSafeUrl(url: unknown): boolean {
   return ALLOWED_SCHEMES.has(match[1]);
 }
 
-// Escape raw HTML in markdown for security, and force link/image URLs to an
-// allowlist of schemes before they are rendered into href/src attributes.
+// Escape raw HTML in markdown, and force link/image URLs to an allowlist of
+// schemes before they are rendered into href/src attributes (first line of
+// defence; the HTMLRewriter allowlist below is the second).
 marked.use({
   gfm: true,
   breaks: true,
@@ -43,15 +44,55 @@ marked.use({
   },
 });
 
-// Post-markdown sanitization: belt-and-suspenders removal of javascript: URLs.
-export function sanitizeHtml(html: string): string {
-  return html
-    .replace(/\s+(?:href|src|action|formaction)\s*=\s*"(?:javascript|vbscript):[^"]*"/gi, ' href="#"')
-    .replace(/\s+(?:href|src|action|formaction)\s*=\s*'(?:javascript|vbscript):[^']*'/gi, " href='#'")
-    .replace(/\s+(?:href|src|action|formaction)\s*=\s*(?:javascript|vbscript):[^\s>"]+/gi, ' href="#"');
+// Tag -> allowed attributes. A tag absent from this map is disallowed.
+const ALLOWED_ATTRS: Record<string, string[]> = {
+  p: [], br: [], b: [], i: [], em: [], strong: [], del: [],
+  ul: [], ol: ['start'], li: [],
+  h1: [], h2: [], h3: [], h4: [], h5: [], h6: [],
+  blockquote: [], pre: [], code: [], hr: [],
+  table: [], thead: [], tbody: [], tr: [],
+  th: ['colspan', 'rowspan'], td: ['colspan', 'rowspan'],
+  span: [], div: [],
+  a: ['href', 'title', 'target', 'rel'],
+  img: ['src', 'alt', 'title'],
+  input: ['type', 'checked', 'disabled'],
+};
+const ALLOWED = new Map(Object.entries(ALLOWED_ATTRS).map(([tag, attrs]) => [tag, new Set(attrs)]));
+const URL_ATTRS = new Set(['href', 'src']);
+// Tags whose contents must be dropped entirely (script/style/embedding).
+const DROP_WITH_CONTENT = new Set(['script', 'style', 'iframe', 'object', 'embed', 'svg', 'math', 'template', 'noscript', 'title', 'textarea', 'xmp']);
+
+class AllowlistHandler {
+  element(el: Element): void {
+    const tag = el.tagName.toLowerCase();
+    const allowedAttrs = ALLOWED.get(tag);
+    if (!allowedAttrs) {
+      if (DROP_WITH_CONTENT.has(tag)) el.remove();
+      else el.removeAndKeepContent();
+      return;
+    }
+    for (const [name] of Array.from(el.attributes)) {
+      const lower = name.toLowerCase();
+      if (!allowedAttrs.has(lower)) {
+        el.removeAttribute(name);
+        continue;
+      }
+      if (URL_ATTRS.has(lower) && !isSafeUrl(el.getAttribute(name))) {
+        el.setAttribute(name, '#');
+      }
+    }
+  }
 }
 
-export function parseMarkdown(content: string): string {
+export async function sanitizeHtml(html: string): Promise<string> {
+  const rewriter = new HTMLRewriter().on('*', new AllowlistHandler());
+  const transformed = rewriter.transform(
+    new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8' } })
+  );
+  return await transformed.text();
+}
+
+export async function parseMarkdown(content: string): Promise<string> {
   if (!content) return '';
   const result = marked.parse(content);
   const html = typeof result === 'string' ? result : '';
