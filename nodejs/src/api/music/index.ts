@@ -8,7 +8,7 @@ import {
   getUserAlbums,
   getAlbum,
   searchSongs,
-} from "./qr-check";
+} from "./music";
 import { getPodcastPrograms, getPodcastProgramDetail } from "./podcast";
 
 export {
