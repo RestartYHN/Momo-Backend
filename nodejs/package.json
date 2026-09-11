@@ -5,7 +5,9 @@
   "main": "app.js",
   "scripts": {
     "dev": "npx prisma migrate dev --name add_new_fields && ts-node src/app.ts",
-    "build": "npx prisma migrate dev --name add_new_fields && tsc -p tsconfig.json",
+    "build": "npx prisma generate && tsc -p tsconfig.json",
+    "db:dev": "npx prisma migrate dev",
+    "db:deploy": "npx prisma migrate deploy",
     "deploy": "bash deploy.sh",
     "start": "node dist/app.js"
   },

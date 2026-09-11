@@ -1,31 +1,20 @@
 #!/bin/bash
-
-# 部署脚本 - 编译项目并准备部署文件
+# 部署准备脚本：安装依赖并构建，产物在 dist/
+set -e
 
 echo "开始部署准备..."
 
-# 1. 检查是否已安装依赖
-echo "1. 检查依赖..."
-echo "安装依赖..."
+echo "1. 安装依赖..."
 pnpm install
 
-# 2. 准备数据库
-echo "2. 准备数据库..."
+# 2. 数据库（可选）
+# 评论线上由 Cloudflare Worker（D1）承载，Node 版的 Prisma/SQLite 库默认不使用。
+# 仅当你要用 Node 版的评论/管理端时才需要初始化数据库：
+#   pnpm db:dev      本地开发：创建/更新本地 SQLite（并生成迁移文件）
+#   pnpm db:deploy   生产：应用已提交的 prisma/migrations（需先把迁移纳入版本控制）
+echo "2. 跳过数据库迁移（Node 版生产不使用评论库）"
 
-# 检查是否存在数据库文件
-if [ ! -f "prisma/dev.db" ]; then
-  echo "初始化数据库..."
-  npx prisma migrate dev --name init
-else
-  echo "数据库已存在，运行迁移..."
-  # 备份数据库
-  cp prisma/dev.db prisma/dev.db.bak
-  npx prisma migrate dev --name add_new_fields
-fi
-
-# 3. 编译 TypeScript 代码
-echo "3. 编译项目..."
+echo "3. 构建项目..."
 pnpm build
-echo "项目编译完成"
 
-echo "部署包已生成在 dist/ 目录"
+echo "构建完成：dist/"
