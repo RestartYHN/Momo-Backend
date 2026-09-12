@@ -169,7 +169,7 @@ const importData = async () => {
     const data = JSON.parse(text)
 
     if (importType.value === 'comments') {
-      const payload = { comments: data.comments || data }
+      const payload = { comments: data.comments || data, likes: data.likes || [], reactions: data.reactions || [] }
       const res = await request.post('/admin/data/import/comments', payload)
       importResult.value = {
         success: res.code === 200,

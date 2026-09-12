@@ -54,6 +54,28 @@ export const exportComments = async (c: Context<{ Bindings: Bindings }>) => {
     contentHtml: row.content_html,
     parentId: row.parent_id || undefined,
     status: row.status,
+    likeCount: row.like_count ?? 0,
+  }));
+
+  const { results: likeRows } = await c.env.MOMO_DB.prepare(
+    "SELECT comment_id, fingerprint, created_at FROM CommentLike"
+  ).all<any>();
+
+  const { results: reactionRows } = await c.env.MOMO_DB.prepare(
+    "SELECT comment_id, fingerprint, reaction_type, created_at FROM CommentReaction"
+  ).all<any>();
+
+  const likes = (likeRows || []).map((row: any) => ({
+    commentId: row.comment_id,
+    fingerprint: row.fingerprint,
+    createdAt: row.created_at,
+  }));
+
+  const reactions = (reactionRows || []).map((row: any) => ({
+    commentId: row.comment_id,
+    fingerprint: row.fingerprint,
+    reactionType: row.reaction_type,
+    createdAt: row.created_at,
   }));
 
   return c.json({
@@ -65,6 +87,8 @@ export const exportComments = async (c: Context<{ Bindings: Bindings }>) => {
       version: pkg.version,
       total: comments.length,
       comments,
+      likes,
+      reactions,
     },
   });
 };
