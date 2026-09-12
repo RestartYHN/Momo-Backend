@@ -61,7 +61,7 @@
               </div>
             </div>
             <div class="flex items-center gap-2">
-              <button @click="importData" :disabled="importing"
+              <button @click="importData" :disabled="importing || preview?.error"
                 class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50 transition-colors text-sm font-medium">
                 <i class="fa-solid" :class="importing ? 'fa-spinner fa-spin' : 'fa-upload'"></i>
                 {{ importing ? '导入中...' : '开始导入' }}
@@ -73,6 +73,17 @@
           </div>
           <p class="mt-2 text-xs text-gray-400">
             将要导入: <strong>{{ importType === 'comments' ? '评论数据' : '系统设置' }}</strong>
+            <template v-if="preview && !preview.error">
+              <template v-if="importType === 'comments'">
+                · 评论 <strong class="text-gray-600">{{ preview.comments }}</strong> 条
+                · 点赞 <strong class="text-gray-600">{{ preview.likes }}</strong> 条
+                · 表情 <strong class="text-gray-600">{{ preview.reactions }}</strong> 条
+              </template>
+              <template v-else>
+                · 设置项 <strong class="text-gray-600">{{ preview.settings }}</strong> 项
+              </template>
+            </template>
+            <span v-if="preview?.error" class="text-red-500 ml-2">{{ preview.error }}</span>
           </p>
         </div>
 
@@ -109,6 +120,7 @@ const selectedFile = ref(null)
 const importType = ref('')
 const importing = ref(false)
 const importResult = ref(null)
+const preview = ref(null)
 
 // 导出评论
 const exportComments = async () => {
@@ -143,18 +155,39 @@ const exportSettings = async () => {
 }
 
 // 文件选择
-const onFileSelected = (event, type) => {
+const onFileSelected = async (event, type) => {
   const file = event.target.files[0]
   if (!file) return
   selectedFile.value = file
   importType.value = type
   importResult.value = null
+  preview.value = null
+
+  try {
+    const data = JSON.parse(await file.text())
+    if (type === 'comments') {
+      const comments = data.comments || data
+      preview.value = {
+        comments: Array.isArray(comments) ? comments.length : 0,
+        likes: Array.isArray(data.likes) ? data.likes.length : 0,
+        reactions: Array.isArray(data.reactions) ? data.reactions.length : 0,
+      }
+    } else {
+      const settings = data.settings || data
+      preview.value = {
+        settings: settings && typeof settings === 'object' ? Object.keys(settings).length : 0,
+      }
+    }
+  } catch (e) {
+    preview.value = { error: '无法解析 JSON 文件' }
+  }
 }
 
 const clearFile = () => {
   selectedFile.value = null
   importType.value = ''
   importResult.value = null
+  preview.value = null
 }
 
 // 导入数据
