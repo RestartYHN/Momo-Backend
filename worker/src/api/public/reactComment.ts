@@ -15,8 +15,11 @@ export const reactComment = async (c: Context<{ Bindings: Bindings }>) => {
   const fingerprint = await getCommentFingerprint(c)
 
   try {
+    // ON CONFLICT DO NOTHING instead of INSERT OR IGNORE: the latter also hides
+    // CHECK violations (that is how migration_003's stale emoji list went
+    // unnoticed — reactions were accepted with a 200 and silently dropped).
     await c.env.MOMO_DB.prepare(
-      'INSERT OR IGNORE INTO CommentReaction (comment_id, fingerprint, reaction_type) VALUES (?, ?, ?)'
+      'INSERT INTO CommentReaction (comment_id, fingerprint, reaction_type) VALUES (?, ?, ?) ON CONFLICT(comment_id, fingerprint, reaction_type) DO NOTHING'
     ).bind(id, fingerprint, reaction_type).run()
 
     const counts = await c.env.MOMO_DB.prepare(
